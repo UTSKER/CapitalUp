@@ -1,0 +1,214 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #111315;
+  --foreground: #F7F8FA;
+  --card: #1D2126;
+  --card-foreground: #F7F8FA;
+  --popover: #1D2126;
+  --popover-foreground: #F7F8FA;
+  --primary: #4F8CFF;
+  --primary-foreground: #F7F8FA;
+  --secondary: #171A1D;
+  --secondary-foreground: #B2BAC5;
+  --muted: #252A31;
+  --muted-foreground: #7A828E;
+  --accent: #252A31;
+  --accent-foreground: #4F8CFF;
+  --destructive: #E25D5D;
+  --destructive-foreground: #F7F8FA;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.06);
+  --input-background: rgba(255, 255, 255, 0.05);
+  --switch-background: #2D3540;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #4F8CFF;
+  --chart-1: #4F8CFF;
+  --chart-2: #18C37E;
+  --chart-3: #F5B942;
+  --chart-4: #E25D5D;
+  --chart-5: #A78BFA;
+  --radius: 0.5rem;
+  --sidebar: #171A1D;
+  --sidebar-foreground: #F7F8FA;
+  --sidebar-primary: #4F8CFF;
+  --sidebar-primary-foreground: #F7F8FA;
+  --sidebar-accent: #252A31;
+  --sidebar-accent-foreground: #F7F8FA;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #4F8CFF;
+
+  /* TradeX brand tokens */
+  --tradex-success: #18C37E;
+  --tradex-warning: #F5B942;
+  --tradex-loss: #E25D5D;
+  --tradex-elevated: #252A31;
+  --tradex-surface: rgba(28, 33, 38, 0.75);
+  --tradex-glass: rgba(255, 255, 255, 0.04);
+  --tradex-glow-blue: rgba(79, 140, 255, 0.15);
+  --tradex-glow-green: rgba(24, 195, 126, 0.1);
+}
+
+.dark {
+  --background: #111315;
+  --foreground: #F7F8FA;
+  --card: #1D2126;
+  --card-foreground: #F7F8FA;
+  --popover: #1D2126;
+  --popover-foreground: #F7F8FA;
+  --primary: #4F8CFF;
+  --primary-foreground: #F7F8FA;
+  --secondary: #171A1D;
+  --secondary-foreground: #B2BAC5;
+  --muted: #252A31;
+  --muted-foreground: #7A828E;
+  --accent: #252A31;
+  --accent-foreground: #4F8CFF;
+  --destructive: #E25D5D;
+  --destructive-foreground: #F7F8FA;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.06);
+  --ring: #4F8CFF;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #4F8CFF;
+  --chart-2: #18C37E;
+  --chart-3: #F5B942;
+  --chart-4: #E25D5D;
+  --chart-5: #A78BFA;
+  --sidebar: #171A1D;
+  --sidebar-foreground: #F7F8FA;
+  --sidebar-primary: #4F8CFF;
+  --sidebar-primary-foreground: #F7F8FA;
+  --sidebar-accent: #252A31;
+  --sidebar-accent-foreground: #F7F8FA;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #4F8CFF;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  h2 {
+    font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+    font-size: var(--text-xl);
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+
+  /* Mono numerals for financial data */
+  .font-mono {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}

@@ -13,9 +13,9 @@ const positions = [
 ];
 
 const sectorColors = {
-  Technology: '#4F8CFF',
-  Financials: '#18C37E',
-  Consumer: '#F5B942'
+  Technology: 'var(--color-accent)',
+  Financials: 'var(--color-success)',
+  Consumer: 'var(--color-warning)'
 };
 
 export function PositionsTable() {
@@ -42,7 +42,7 @@ export function PositionsTable() {
   const headerStyle = (key) => ({
     fontSize: '10px',
     fontWeight: 600,
-    color: sort === key ? '#4F8CFF' : '#7A828E',
+    color: sort === key ? 'var(--color-accent)' : 'var(--color-text-muted)',
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
     cursor: 'pointer',
@@ -61,15 +61,15 @@ export function PositionsTable() {
   return (
     <div
       style={{
-        background: 'rgba(28,33,38,0.6)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: 'var(--color-bg-panel-0.6)',
+        border: '1px solid var(--color-white-0.07)',
         borderRadius: '14px',
         overflow: 'hidden'
       }}>
       
       {/* Table header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px 0' }}>
-        <div style={{ fontSize: '11px', fontWeight: 500, color: '#7A828E', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Positions — {positions.length} Holdings
         </div>
         <button
@@ -77,19 +77,19 @@ export function PositionsTable() {
             display: 'flex',
             alignItems: 'center',
             gap: '5px',
-            background: 'rgba(79,140,255,0.1)',
-            border: '1px solid rgba(79,140,255,0.2)',
+            background: 'var(--color-accent-0.1)',
+            border: '1px solid var(--color-accent-0.2)',
             borderRadius: '7px',
             padding: '6px 12px',
-            color: '#4F8CFF',
+            color: 'var(--color-accent)',
             fontSize: '12px',
             fontWeight: 500,
             fontFamily: 'DM Sans, sans-serif',
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(79,140,255,0.15)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(79,140,255,0.1)'; }}>
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-0.15)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent-0.1)'; }}>
           
           <Plus size={12} />
           Add Position
@@ -100,7 +100,7 @@ export function PositionsTable() {
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '680px' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <tr style={{ borderBottom: '1px solid var(--color-white-0.06)' }}>
               <th style={{ padding: '0 24px 10px', textAlign: 'left' }}>
                 <button onClick={() => handleSort('ticker')} style={headerStyle('ticker')}>
                   Asset {sort === 'ticker' ? sortDir === 'asc' ? '↑' : '↓' : ''}
@@ -144,11 +144,11 @@ export function PositionsTable() {
                 <tr
                   key={pos.ticker}
                   style={{
-                    borderBottom: idx < sorted.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                    borderBottom: idx < sorted.length - 1 ? '1px solid var(--color-white-0.04)' : 'none',
                     transition: 'background 0.15s',
                     cursor: 'default'
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)'; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.025)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                   
                   {/* Asset */}
@@ -159,22 +159,22 @@ export function PositionsTable() {
                           width: '34px',
                           height: '34px',
                           borderRadius: '8px',
-                          background: `${sectorColors[pos.sector] || '#7A828E'}15`,
-                          border: `1px solid ${sectorColors[pos.sector] || '#7A828E'}30`,
+                          background: `${sectorColors[pos.sector] || 'var(--color-text-muted)'}15`,
+                          border: `1px solid ${sectorColors[pos.sector] || 'var(--color-text-muted)'}30`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontSize: '10px',
                           fontWeight: 700,
-                          color: sectorColors[pos.sector] || '#7A828E',
+                          color: sectorColors[pos.sector] || 'var(--color-text-muted)',
                           letterSpacing: '0.02em',
                           flexShrink: 0
                         }}>
                         {pos.ticker.slice(0, 2)}
                       </div>
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#F7F8FA', marginBottom: '1px' }}>{pos.ticker}</div>
-                        <div style={{ fontSize: '11px', color: '#7A828E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '1px' }}>{pos.ticker}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
                           {pos.name}
                         </div>
                       </div>
@@ -183,22 +183,22 @@ export function PositionsTable() {
 
                   {/* Shares */}
                   <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: '#B2BAC5' }}>{pos.shares.toLocaleString()}</span>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--color-text-sub)' }}>{pos.shares.toLocaleString()}</span>
                   </td>
 
                   {/* Avg Cost */}
                   <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: '#B2BAC5' }}>${pos.avgCost.toFixed(2)}</span>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--color-text-sub)' }}>${pos.avgCost.toFixed(2)}</span>
                   </td>
 
                   {/* Current Price */}
                   <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: '#F7F8FA', fontWeight: 500 }}>${pos.current.toFixed(2)}</span>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--color-text-main)', fontWeight: 500 }}>${pos.current.toFixed(2)}</span>
                   </td>
 
                   {/* Market Value */}
                   <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: '#F7F8FA', fontWeight: 500 }}>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: 'var(--color-text-main)', fontWeight: 500 }}>
                       ${pos.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </td>
@@ -206,8 +206,8 @@ export function PositionsTable() {
                   {/* P&L */}
                   <td style={{ padding: '14px 12px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>
-                      {isPos ? <ArrowUpRight size={12} color="#18C37E" /> : <ArrowDownRight size={12} color="#E25D5D" />}
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: isPos ? '#18C37E' : '#E25D5D', fontWeight: 500 }}>
+                      {isPos ? <ArrowUpRight size={12} color="var(--color-success)" /> : <ArrowDownRight size={12} color="var(--color-error)" />}
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: isPos ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>
                         ${Math.abs(pos.pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
@@ -220,8 +220,8 @@ export function PositionsTable() {
                         fontFamily: 'JetBrains Mono, monospace',
                         fontSize: '11px',
                         fontWeight: 600,
-                        color: isPos ? '#18C37E' : '#E25D5D',
-                        background: isPos ? 'rgba(24,195,126,0.1)' : 'rgba(226,93,93,0.1)',
+                        color: isPos ? 'var(--color-success)' : 'var(--color-error)',
+                        background: isPos ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)',
                         padding: '3px 7px',
                         borderRadius: '5px'
                       }}>
@@ -232,10 +232,10 @@ export function PositionsTable() {
                   {/* Weight */}
                   <td style={{ padding: '14px 24px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                      <div style={{ width: '40px', height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(pos.weight / 4 * 100, 100)}%`, height: '100%', background: '#4F8CFF', borderRadius: '2px' }} />
+                      <div style={{ width: '40px', height: '3px', background: 'var(--color-white-0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.min(pos.weight / 4 * 100, 100)}%`, height: '100%', background: 'var(--color-accent)', borderRadius: '2px' }} />
                       </div>
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#7A828E', width: '28px', textAlign: 'right' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: 'var(--color-text-muted)', width: '28px', textAlign: 'right' }}>
                         {pos.weight}%
                       </span>
                     </div>

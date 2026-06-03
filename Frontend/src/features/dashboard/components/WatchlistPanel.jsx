@@ -25,8 +25,8 @@ export function WatchlistPanel() {
   return (
     <div
       style={{
-        background: 'rgba(28,33,38,0.6)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: 'var(--color-bg-panel-0.6)',
+        border: '1px solid var(--color-white-0.07)',
         borderRadius: '14px',
         overflow: 'hidden',
         height: '100%',
@@ -35,18 +35,18 @@ export function WatchlistPanel() {
       }}>
       
       {/* Header */}
-      <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--color-white-0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 500, color: '#7A828E', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             Watchlist
           </div>
           <button
             style={{
-              background: 'rgba(79,140,255,0.1)',
-              border: '1px solid rgba(79,140,255,0.2)',
+              background: 'var(--color-accent-0.1)',
+              border: '1px solid var(--color-accent-0.2)',
               borderRadius: '6px',
               padding: '4px 10px',
-              color: '#4F8CFF',
+              color: 'var(--color-accent)',
               fontSize: '11px',
               fontWeight: 500,
               cursor: 'pointer',
@@ -65,13 +65,13 @@ export function WatchlistPanel() {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'var(--color-white-0.04)',
+            border: '1px solid var(--color-white-0.08)',
             borderRadius: '8px',
             padding: '8px 12px'
           }}>
           
-          <Search size={13} color="#7A828E" />
+          <Search size={13} color="var(--color-text-muted)" />
           <input
             type="text"
             placeholder="Search ticker or name..."
@@ -81,7 +81,7 @@ export function WatchlistPanel() {
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#F7F8FA',
+              color: 'var(--color-text-main)',
               fontSize: '12px',
               fontFamily: 'DM Sans, sans-serif',
               flex: 1
@@ -95,7 +95,7 @@ export function WatchlistPanel() {
           display: 'grid',
           gridTemplateColumns: '1fr 80px 70px 50px',
           padding: '8px 20px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)'
+          borderBottom: '1px solid var(--color-white-0.05)'
         }}>
         {['Symbol', 'Price', 'Change', ''].map((h, i) =>
           <div
@@ -103,7 +103,7 @@ export function WatchlistPanel() {
             style={{
               fontSize: '9px',
               fontWeight: 600,
-              color: '#4A5260',
+              color: 'var(--color-text-dim)',
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               textAlign: i > 0 ? 'right' : 'left'
@@ -124,23 +124,23 @@ export function WatchlistPanel() {
                 display: 'grid',
                 gridTemplateColumns: '1fr 80px 70px 50px',
                 padding: '10px 20px',
-                borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                borderBottom: idx < filtered.length - 1 ? '1px solid var(--color-white-0.04)' : 'none',
                 alignItems: 'center',
                 transition: 'background 0.15s',
                 cursor: 'default'
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.025)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
               
               {/* Symbol + name */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#F7F8FA' }}>{stock.ticker}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>{stock.ticker}</span>
                   <span
                     style={{
                       fontSize: '9px',
-                      color: '#7A828E',
-                      background: 'rgba(255,255,255,0.04)',
+                      color: 'var(--color-text-muted)',
+                      background: 'var(--color-white-0.04)',
                       padding: '1px 5px',
                       borderRadius: '3px',
                       letterSpacing: '0.04em'
@@ -148,14 +148,14 @@ export function WatchlistPanel() {
                     {stock.mktCap}
                   </span>
                 </div>
-                <div style={{ fontSize: '10px', color: '#7A828E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
                   {stock.name}
                 </div>
               </div>
 
               {/* Price */}
               <div style={{ textAlign: 'right' }}>
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', fontWeight: 500, color: '#F7F8FA' }}>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', fontWeight: 500, color: 'var(--color-text-main)' }}>
                   ${stock.price.toFixed(2)}
                 </span>
               </div>
@@ -163,12 +163,12 @@ export function WatchlistPanel() {
               {/* Change */}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
-                  {stock.positive ? <ArrowUpRight size={11} color="#18C37E" /> : <ArrowDownRight size={11} color="#E25D5D" />}
+                  {stock.positive ? <ArrowUpRight size={11} color="var(--color-success)" /> : <ArrowDownRight size={11} color="var(--color-error)" />}
                   <span
                     style={{
                       fontFamily: 'JetBrains Mono, monospace',
                       fontSize: '11px',
-                      color: stock.positive ? '#18C37E' : '#E25D5D',
+                      color: stock.positive ? 'var(--color-success)' : 'var(--color-error)',
                       fontWeight: 500
                     }}>
                     {stock.positive ? '+' : ''}{stock.pct.toFixed(2)}%
@@ -197,8 +197,8 @@ export function WatchlistPanel() {
                   
                   <Star
                     size={13}
-                    color={isStarred ? '#F5B942' : '#4A5260'}
-                    fill={isStarred ? '#F5B942' : 'none'}
+                    color={isStarred ? 'var(--color-warning)' : 'var(--color-text-dim)'}
+                    fill={isStarred ? 'var(--color-warning)' : 'none'}
                   />
                 </button>
               </div>

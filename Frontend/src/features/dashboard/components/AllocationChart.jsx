@@ -1,9 +1,9 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const allocationData = [
-  { name: 'Equities', value: 65, color: '#4F8CFF', amount: '$1,850,805' },
-  { name: 'Fixed Income', value: 20, color: '#18C37E', amount: '$569,478' },
-  { name: 'Cash', value: 8, color: '#F5B942', amount: '$227,791' },
+  { name: 'Equities', value: 65, color: 'var(--color-accent)', amount: '$1,850,805' },
+  { name: 'Fixed Income', value: 20, color: 'var(--color-success)', amount: '$569,478' },
+  { name: 'Cash', value: 8, color: 'var(--color-warning)', amount: '$227,791' },
   { name: 'Alternatives', value: 7, color: '#A78BFA', amount: '$199,317' }
 ];
 
@@ -11,9 +11,9 @@ const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const d = payload[0].payload;
     return (
-      <div style={{ background: 'rgba(28,33,38,0.97)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
-        <div style={{ fontSize: '12px', color: '#B2BAC5', marginBottom: '3px' }}>{d.name}</div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', color: '#F7F8FA', fontWeight: 500 }}>{d.amount}</div>
+      <div style={{ background: 'var(--color-bg-panel-0.97)', border: '1px solid var(--color-white-0.1)', borderRadius: '8px', padding: '10px 14px', boxShadow: '0 8px 24px var(--color-black-0.4)' }}>
+        <div style={{ fontSize: '12px', color: 'var(--color-text-sub)', marginBottom: '3px' }}>{d.name}</div>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', color: 'var(--color-text-main)', fontWeight: 500 }}>{d.amount}</div>
         <div style={{ fontSize: '11px', color: d.color, marginTop: '2px' }}>{d.value}%</div>
       </div>
     );
@@ -25,14 +25,14 @@ export function AllocationChart() {
   return (
     <div
       style={{
-        background: 'rgba(28,33,38,0.6)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: 'var(--color-bg-panel-0.6)',
+        border: '1px solid var(--color-white-0.07)',
         borderRadius: '14px',
         padding: '24px',
         height: '100%'
       }}>
       
-      <div style={{ fontSize: '11px', fontWeight: 500, color: '#7A828E', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '20px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '20px' }}>
         Asset Allocation
       </div>
 
@@ -68,10 +68,10 @@ export function AllocationChart() {
             pointerEvents: 'none'
           }}>
           
-          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '15px', fontWeight: 500, color: '#F7F8FA', lineHeight: 1 }}>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '15px', fontWeight: 500, color: 'var(--color-text-main)', lineHeight: 1 }}>
             $2.85M
           </div>
-          <div style={{ fontSize: '9px', color: '#7A828E', marginTop: '3px', fontWeight: 500, letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginTop: '3px', fontWeight: 500, letterSpacing: '0.05em' }}>
             TOTAL
           </div>
         </div>
@@ -83,10 +83,10 @@ export function AllocationChart() {
           <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: d.color, flexShrink: 0 }} />
-              <span style={{ fontSize: '12px', color: '#B2BAC5' }}>{d.name}</span>
+              <span style={{ fontSize: '12px', color: 'var(--color-text-sub)' }}>{d.name}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '11px', color: '#7A828E', fontFamily: 'JetBrains Mono, monospace' }}>{d.amount}</span>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>{d.amount}</span>
               <span
                 style={{
                   fontFamily: 'JetBrains Mono, monospace',

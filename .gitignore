@@ -38,5 +38,8 @@ Thumbs.db
 *.suo
 *.ntvsca*
 *.njsproj
-*.sln
 *.sw?
+
+# Helper scripts
+replace_colors.py
+

@@ -62,13 +62,13 @@ export function MarketCards() {
   return (
     <div
       style={{
-        background: 'rgba(28,33,38,0.6)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: 'var(--color-bg-panel-0.6)',
+        border: '1px solid var(--color-white-0.07)',
         borderRadius: '14px',
         padding: '20px 24px'
       }}>
       
-      <div style={{ fontSize: '11px', fontWeight: 500, color: '#7A828E', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '16px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '16px' }}>
         Market Overview
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px' }} className="max-xl:grid-cols-3 max-md:grid-cols-2">
@@ -76,29 +76,29 @@ export function MarketCards() {
           <div
             key={m.label}
             style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              background: 'var(--color-white-0.03)',
+              border: '1px solid var(--color-white-0.06)',
               borderRadius: '10px',
               padding: '14px',
               transition: 'all 0.2s',
               cursor: 'default'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+              e.currentTarget.style.background = 'var(--color-white-0.05)';
+              e.currentTarget.style.borderColor = 'var(--color-white-0.1)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+              e.currentTarget.style.background = 'var(--color-white-0.03)';
+              e.currentTarget.style.borderColor = 'var(--color-white-0.06)';
             }}>
             
-            <div style={{ fontSize: '10px', color: '#7A828E', fontWeight: 500, marginBottom: '6px' }}>{m.label}</div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: '#F7F8FA', marginBottom: '4px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, marginBottom: '6px' }}>{m.label}</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-main)', marginBottom: '4px' }}>
               {m.value}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '8px' }}>
-              {m.positive ? <ArrowUpRight size={11} color="#18C37E" /> : <ArrowDownRight size={11} color="#E25D5D" />}
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: m.positive ? '#18C37E' : '#E25D5D' }}>
+              {m.positive ? <ArrowUpRight size={11} color="var(--color-success)" /> : <ArrowDownRight size={11} color="var(--color-error)" />}
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: m.positive ? 'var(--color-success)' : 'var(--color-error)' }}>
                 {m.pct}
               </span>
             </div>
@@ -107,14 +107,14 @@ export function MarketCards() {
                 <AreaChart data={m.data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id={`mkt-${m.label}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={m.positive ? '#18C37E' : '#E25D5D'} stopOpacity={0.2} />
-                      <stop offset="100%" stopColor={m.positive ? '#18C37E' : '#E25D5D'} stopOpacity={0} />
+                      <stop offset="0%" stopColor={m.positive ? 'var(--color-success)' : 'var(--color-error)'} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={m.positive ? 'var(--color-success)' : 'var(--color-error)'} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <Area
                     type="monotone"
                     dataKey="v"
-                    stroke={m.positive ? '#18C37E' : '#E25D5D'}
+                    stroke={m.positive ? 'var(--color-success)' : 'var(--color-error)'}
                     strokeWidth={1.5}
                     fill={`url(#mkt-${m.label})`}
                     dot={false}

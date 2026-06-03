@@ -19,8 +19,8 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
       style={{
         width: '232px',
         flexShrink: 0,
-        background: '#0E1013',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--color-bg-dark)',
+        borderRight: '1px solid var(--color-white-0.06)',
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
@@ -36,7 +36,7 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
       <div
         style={{
           padding: '20px 20px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)'
+          borderBottom: '1px solid var(--color-white-0.05)'
         }}>
         
         <button
@@ -55,22 +55,22 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
             style={{
               width: '32px',
               height: '32px',
-              background: 'linear-gradient(135deg, #4F8CFF 0%, #2D6BFF 100%)',
+              background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)',
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(79,140,255,0.3)'
+              boxShadow: '0 4px 12px var(--color-accent-0.3)'
             }}>
             
-            <TrendingUp size={15} color="#fff" strokeWidth={2.5} />
+            <TrendingUp size={15} color="var(--color-text-inverted)" strokeWidth={2.5} />
           </div>
           <div>
-            <div style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: '16px', color: '#F7F8FA', letterSpacing: '-0.2px', lineHeight: 1 }}>
+            <div style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: '16px', color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1 }}>
               CapitalUp
             </div>
-            <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '7px', color: '#4F8CFF', fontWeight: 700, letterSpacing: '0.12em', marginTop: '1px' }}>
+            <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '7px', color: 'var(--color-accent)', fontWeight: 700, letterSpacing: '0.12em', marginTop: '1px' }}>
               GROW·CAPITAL·SMARTLY
             </div>
           </div>
@@ -81,24 +81,24 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
       <div
         style={{
           padding: '16px 16px 12px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)'
+          borderBottom: '1px solid var(--color-white-0.05)'
         }}>
         
-        <div style={{ fontSize: '10px', color: '#7A828E', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
+        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
           Portfolio Value
         </div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 500, color: '#F7F8FA', marginBottom: '3px' }}>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 500, color: 'var(--color-text-main)', marginBottom: '3px' }}>
           $2,847,392
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#18C37E' }}>+$24,839</span>
-          <span style={{ fontSize: '10px', color: '#18C37E', background: 'rgba(24,195,126,0.1)', padding: '1px 5px', borderRadius: '4px' }}>+0.88%</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: 'var(--color-success)' }}>+$24,839</span>
+          <span style={{ fontSize: '10px', color: 'var(--color-success)', background: 'var(--color-success-0.1)', padding: '1px 5px', borderRadius: '4px' }}>+0.88%</span>
         </div>
       </div>
 
       {/* Nav links */}
       <nav style={{ padding: '12px 10px', flex: 1 }}>
-        <div style={{ fontSize: '10px', fontWeight: 600, color: '#4A5260', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 10px', marginBottom: '4px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 10px', marginBottom: '4px' }}>
           Main Menu
         </div>
         {navItems.map((item) => {
@@ -116,8 +116,8 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
                 borderRadius: '8px',
                 border: 'none',
                 cursor: 'pointer',
-                color: isActive ? '#4F8CFF' : '#7A828E',
-                background: isActive ? 'rgba(79,140,255,0.1)' : 'transparent',
+                color: isActive ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                background: isActive ? 'var(--color-accent-0.1)' : 'transparent',
                 fontSize: '13px',
                 fontWeight: isActive ? 500 : 400,
                 fontFamily: 'DM Sans, sans-serif',
@@ -127,14 +127,14 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                  e.currentTarget.style.color = '#B2BAC5';
+                  e.currentTarget.style.background = 'var(--color-white-0.05)';
+                  e.currentTarget.style.color = 'var(--color-text-sub)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#7A828E';
+                  e.currentTarget.style.color = 'var(--color-text-muted)';
                 }
               }}>
               
@@ -144,8 +144,8 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
                 <span
                   style={{
                     marginLeft: 'auto',
-                    background: '#4F8CFF',
-                    color: '#fff',
+                    background: 'var(--color-accent)',
+                    color: 'var(--color-text-inverted)',
                     fontSize: '9px',
                     fontWeight: 700,
                     padding: '1px 5px',
@@ -159,12 +159,13 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
         })}
 
         {/* Divider */}
-        <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '12px 0' }} />
+        <div style={{ height: '1px', background: 'var(--color-white-0.05)', margin: '12px 0' }} />
 
-        <div style={{ fontSize: '10px', fontWeight: 600, color: '#4A5260', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 10px', marginBottom: '4px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 10px', marginBottom: '4px' }}>
           Settings
         </div>
         <button
+          onClick={() => onTabChange('settings')}
           style={{
             width: '100%',
             display: 'flex',
@@ -174,29 +175,40 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
             borderRadius: '8px',
             border: 'none',
             cursor: 'pointer',
-            color: '#7A828E',
-            background: 'transparent',
+            color: activeTab === 'settings' ? 'var(--color-accent)' : 'var(--color-text-muted)',
+            background: activeTab === 'settings' ? 'var(--color-accent-0.1)' : 'transparent',
             fontSize: '13px',
             fontFamily: 'DM Sans, sans-serif',
             textAlign: 'left',
             transition: 'all 0.2s'
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#B2BAC5'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7A828E'; }}>
+          onMouseEnter={(e) => {
+            if (activeTab !== 'settings') {
+              e.currentTarget.style.background = 'var(--color-white-0.05)';
+              e.currentTarget.style.color = 'var(--color-text-sub)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'settings') {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--color-text-muted)';
+            }
+          }}>
           
           <Settings size={15} strokeWidth={1.8} />
           Settings
         </button>
       </nav>
-
+ 
       {/* User profile */}
       <div
         style={{
           padding: '12px 12px 16px',
-          borderTop: '1px solid rgba(255,255,255,0.05)'
+          borderTop: '1px solid var(--color-white-0.05)'
         }}>
         
         <button
+          onClick={() => onTabChange('profile')}
           style={{
             width: '100%',
             display: 'flex',
@@ -204,37 +216,45 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
             gap: '10px',
             padding: '8px 10px',
             borderRadius: '8px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            background: activeTab === 'profile' ? 'var(--color-accent-0.1)' : 'var(--color-white-0.03)',
+            border: `1px solid ${activeTab === 'profile' ? 'var(--color-accent-0.3)' : 'var(--color-white-0.06)'}`,
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}>
+          onMouseEnter={(e) => {
+            if (activeTab !== 'profile') {
+              e.currentTarget.style.background = 'var(--color-white-0.06)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'profile') {
+              e.currentTarget.style.background = 'var(--color-white-0.03)';
+            }
+          }}>
           
           <div
             style={{
               width: '30px',
               height: '30px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #4F8CFF 0%, #A78BFA 100%)',
+              background: 'linear-gradient(135deg, var(--color-accent) 0%, #A78BFA 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '12px',
               fontWeight: 700,
-              color: '#fff',
+              color: 'var(--color-text-inverted)',
               flexShrink: 0
             }}>
             JD
           </div>
           <div style={{ flex: 1, textAlign: 'left', overflow: 'hidden' }}>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: '#F7F8FA', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               James Dornan
             </div>
-            <div style={{ fontSize: '10px', color: '#7A828E' }}>Premium Plan</div>
+            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Premium Plan</div>
           </div>
-          <LogOut size={13} color="#7A828E" />
+          <LogOut size={13} color="var(--color-text-muted)" />
         </button>
       </div>
     </aside>

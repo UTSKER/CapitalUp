@@ -7,7 +7,11 @@ const {
   sendOTP,
   resendOTP,
   verifyOTP,
+  register,login,refresh,logout
 } = require("../controllers/auth.controller");
+
+const authenticate = require("../../../middlewares/auth.middleware");
+
 
 const validate = require("../../../middlewares/validate.middleware");
 const { rateLimitOTP } = require("../../../middlewares/validate.middleware");
@@ -17,6 +21,7 @@ const {
   sendOTPSchema,
   verifyOTPSchema,
   resendOTPSchema,
+  loginSchema,
 } = require("../validators/auth.validator");
 
 router.post(
@@ -44,6 +49,23 @@ router.post(
   validate(verifyOTPSchema),
   rateLimitOTP("verify"),
   verifyOTP
+);
+
+module.exports = router;
+  "/login",
+  validate(loginSchema),
+  login
+);  
+
+router.post(
+  "/refresh",
+  refresh
+);
+
+router.post(
+  "/logout",
+  authenticate,
+  logout
 );
 
 module.exports = router;

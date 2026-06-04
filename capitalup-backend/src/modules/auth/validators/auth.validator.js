@@ -67,3 +67,34 @@ module.exports = {
   verifyOTPSchema,
   resendOTPSchema,
 };
+const loginSchema = z.object({
+  identifier: z
+    .string()
+    .trim()
+    .refine(
+      (value) => {
+        const isEmail =
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+        const isMobile =
+          /^[0-9]{10}$/.test(value);
+
+        return isEmail || isMobile;
+      },
+      {
+        message:
+          "Enter a valid email or 10-digit mobile number",
+      }
+    ),
+
+  password: z
+    .string()
+    .min(
+      1,
+      "Password is required"
+    ),
+});
+
+module.exports = {
+  registerSchema, loginSchema
+};

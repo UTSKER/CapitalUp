@@ -26,6 +26,20 @@ async function findUserByMobile(mobileNumber) {
   return result.rows[0];
 }
 
+async function findUserByIdentifier(identifier) {
+  const result = await pool.query(
+    `
+      SELECT *
+      FROM users
+      WHERE email = $1
+         OR mobile_number = $1
+    `,
+    [identifier]
+  );
+
+  return result.rows[0];
+}
+
 async function createUser({
   full_name,
   email,
@@ -76,6 +90,7 @@ async function markEmailVerified(email) {
 module.exports = {
   findUserByEmail,
   findUserByMobile,
+  findUserByIdentifier,
   createUser,
   markEmailVerified,
 };

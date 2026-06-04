@@ -4,7 +4,27 @@ const {
   findUserByEmail,
   findUserByMobile,
   createUser,
+  markEmailVerified,
 } = require("../repositories/auth.repository");
+const {
+  verificationKey,
+  storeVerificationToken,
+  storeRefreshToken,
+  getToken,
+  deleteToken,
+  incrementWithExpiry,
+} = require("../../../shared/services/redis.service");
+const {
+  sendVerificationEmail,
+  sendVerificationSuccessEmail,
+} = require("../../../shared/services/email.service");
+const {
+  generateAccessToken,
+  generateRefreshToken,
+} = require("../../../shared/services/jwt.service");
+const { generateOTP, hashOTP, otpMatches } = require("../utils/auth.utils");
+
+const OTP_EXPIRY_SECONDS = Number(process.env.OTP_EXPIRY_MINUTES || 10) * 60;
 
 async function registerUser({
   full_name,
@@ -39,6 +59,93 @@ async function registerUser({
   return user;
 }
 
+async function sendOTP(email, rateLimitKey) {
+  const user = await findUserByEmail(email);
+  if (!user) {
+    throw httpError(404, "Email not found");
+  }
+
+  const otp = generateOTP(Number(process.env.OTP_LENGTH || 6));
+  await storeVerificationToken(email, hashOTP(otp), OTP_EXPIRY_SECONDS);
+
+  try {
+    await sendVerificationEmail(
+      email,
+      user.full_name,
+      otp,
+      Math.ceil(OTP_EXPIRY_SECONDS / 60)
+    );
+  } catch (error) {
+    await deleteToken(verificationKey(email));
+    throw httpError(500, "Unable to send verification email");
+  }
+
+  await incrementWithExpiry(rateLimitKey, rateLimitKey.includes("resend") ? 600 : 3600);
+  return { email, expiresIn: OTP_EXPIRY_SECONDS };
+}
+
+async function verifyOTP(email, otp, rateLimitKey) {
+  const user = await findUserByEmail(email);
+  if (!user) {
+    throw httpError(404, "Email not found");
+  }
+
+  const storedHash = await getToken(verificationKey(email));
+  if (!storedHash) {
+    throw httpError(401, "OTP expired, request a new one");
+  }
+
+  if (!otpMatches(otp, storedHash)) {
+    const attempts = await incrementWithExpiry(rateLimitKey, 3600);
+    const attemptsRemaining = Math.max(3 - attempts, 0);
+
+    if (attempts >= 3) {
+      await incrementWithExpiry(`rate_limit:otp_lock:${email}`, 30 * 60);
+      await deleteToken(verificationKey(email));
+      const error = httpError(429, "Too many failed attempts. Email locked for 30 minutes");
+      error.retryAfter = 30 * 60;
+      throw error;
+    }
+
+    const error = httpError(401, `Invalid OTP. ${attemptsRemaining} attempts remaining`);
+    error.data = { attemptsRemaining };
+    throw error;
+  }
+
+  await deleteToken(verificationKey(email));
+  await deleteToken(rateLimitKey);
+
+  const verifiedUser = user.is_email_verified
+    ? sanitizeUser(user)
+    : await markEmailVerified(email);
+  const accessToken = generateAccessToken(verifiedUser);
+  const refreshToken = generateRefreshToken(verifiedUser);
+  await storeRefreshToken(
+    verifiedUser.id,
+    refreshToken,
+    Number(process.env.REFRESH_TOKEN_EXPIRY || 604800)
+  );
+
+  sendVerificationSuccessEmail(email, verifiedUser.full_name).catch((error) => {
+    console.error("Unable to send verification success email:", error.message);
+  });
+
+  return { accessToken, refreshToken, user: sanitizeUser(verifiedUser) };
+}
+
+function sanitizeUser(user) {
+  const { password_hash, ...safeUser } = user;
+  return safeUser;
+}
+
+function httpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
 module.exports = {
   registerUser,
+  sendOTP,
+  verifyOTP,
 };

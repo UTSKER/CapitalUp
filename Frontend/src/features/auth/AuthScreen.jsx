@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, ArrowRight, Shield, CheckCircle, TrendingUp } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, ArrowRight, Shield, CheckCircle, TrendingUp } from 'lucide-react';
 
 const AUTH_CSS = `
   @keyframes auth-float-a {
@@ -239,15 +239,15 @@ function InputField({ type, label, placeholder, icon: Icon, value, onChange }) {
 }
 
 /* ─── SUBMIT BUTTON ─────────────────────────────────────────────── */
-function SubmitBtn({ label, onClick }) {
+function SubmitBtn({ label, onClick, disabled = false }) {
   return (
-    <button onClick={onClick}
+    <button onClick={onClick} disabled={disabled}
       style={{
         width: '100%', padding: '13px', background: 'var(--color-accent)', border: 'none',
         borderRadius: '9px', color: 'var(--color-text-inverted)', fontSize: '14px', fontWeight: 600,
-        fontFamily: 'DM Sans, sans-serif', cursor: 'pointer', marginBottom: '18px',
+        fontFamily: 'DM Sans, sans-serif', cursor: disabled ? 'not-allowed' : 'pointer', marginBottom: '18px',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-        transition: 'all 0.22s', boxShadow: '0 4px 20px var(--color-accent-0.3)'
+        transition: 'all 0.22s', boxShadow: '0 4px 20px var(--color-accent-0.3)', opacity: disabled ? 0.65 : 1
       }}
       onMouseEnter={(e) => { e.currentTarget.style.background = '#3D7BF0'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 28px var(--color-accent-0.4)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 20px var(--color-accent-0.3)'; }}>
@@ -294,33 +294,77 @@ function Divider() {
 }
 
 /* ─── FORMS ─────────────────────────────────────────────────────── */
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
+async function authRequest(path, body) {
+  const response = await fetch(`${API_URL}/auth/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || 'Something went wrong');
+  return payload;
+}
+
 function LoginForm({ onNavigate }) {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState('email');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const sendOTP = async (resend = false) => {
+    setLoading(true);
+    setError('');
+    try {
+      await authRequest(resend ? 'resend-otp' : 'send-otp', { email });
+      setStep('otp');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOTP = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await authRequest('verify-otp', { email, otp });
+      localStorage.setItem('capitalup-access-token', response.data.accessToken);
+      localStorage.setItem('capitalup-refresh-token', response.data.refreshToken);
+      localStorage.setItem('capitalup-user', JSON.stringify(response.data.user));
+      onNavigate('dashboard');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div key="login" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.3 }}>
       <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>Welcome back</h1>
-        <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Sign in to your CapitalUp account to manage your portfolio.</p>
+        <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>{step === 'email' ? 'Welcome back' : 'Check your email'}</h1>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{step === 'email' ? 'Sign in securely with a one-time password sent to your email.' : `Enter the six-digit code sent to ${email}. It expires in 10 minutes.`}</p>
       </div>
 
-      <GoogleBtn />
-      <Divider />
+      {step === 'email' ? <>
+        <GoogleBtn />
+        <Divider />
+        <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
+        <SubmitBtn label={loading ? 'Sending code...' : 'Send sign-in code'} onClick={() => sendOTP(false)} disabled={loading || !email} />
+      </> : <>
+        <InputField type="text" label="One-Time Password" placeholder="123456" icon={Shield} value={otp} onChange={(value) => setOtp(value.replace(/\D/g, '').slice(0, 6))} />
+        <SubmitBtn label={loading ? 'Verifying...' : 'Verify and sign in'} onClick={verifyOTP} disabled={loading || otp.length !== 6} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <button onClick={() => { setStep('email'); setOtp(''); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }}>Change email</button>
+          <button onClick={() => sendOTP(true)} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }}>Resend code</button>
+        </div>
+      </>}
 
-      <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
-      <InputField type="password" label="Password" placeholder="Your password" icon={Lock} value={password} onChange={setPassword} />
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '12px', color: 'var(--color-text-muted)' }}>
-          <input type="checkbox" style={{ accentColor: 'var(--color-accent)' }} />
-          Remember me
-        </label>
-        <button onClick={() => onNavigate('forgot')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontSize: '12px', fontWeight: 500, fontFamily: 'DM Sans, sans-serif' }}>
-          Forgot password?
-        </button>
-      </div>
-
-      <SubmitBtn label="Sign in to CapitalUp" onClick={() => onNavigate('dashboard')} />
+      {error && <p style={{ color: 'var(--color-error)', background: 'var(--color-error-0.1)', border: '1px solid var(--color-error-0.22)', borderRadius: '8px', padding: '10px', fontSize: '12px', marginBottom: '18px' }}>{error}</p>}
 
       <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--color-text-muted)' }}>
         No account yet?{' '}
@@ -333,29 +377,70 @@ function LoginForm({ onNavigate }) {
 function RegisterForm({ onNavigate }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [pass, setPass] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState('details');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const register = async () => {
+    if (pass !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      await authRequest('register', { full_name: name, email, mobile_number: mobile, password: pass });
+      await authRequest('send-otp', { email });
+      setStep('otp');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verify = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await authRequest('verify-otp', { email, otp });
+      localStorage.setItem('capitalup-access-token', response.data.accessToken);
+      localStorage.setItem('capitalup-refresh-token', response.data.refreshToken);
+      localStorage.setItem('capitalup-user', JSON.stringify(response.data.user));
+      onNavigate('dashboard');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <motion.div key="register" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.3 }}>
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>Create your account</h1>
-        <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Join 180,000+ investors building institutional-grade portfolios.</p>
+        <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>{step === 'details' ? 'Create your account' : 'Verify your email'}</h1>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{step === 'details' ? 'Join 180,000+ investors building institutional-grade portfolios.' : `Enter the six-digit code sent to ${email}.`}</p>
       </div>
 
-      <InputField type="text" label="Full Name" placeholder="Your full name" icon={User} value={name} onChange={setName} />
-      <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
-      <InputField type="password" label="Password" placeholder="Minimum 12 characters" icon={Lock} value={pass} onChange={setPass} />
-      <InputField type="password" label="Confirm Password" placeholder="Repeat your password" icon={Lock} value={confirm} onChange={setConfirm} />
+      {step === 'details' ? <>
+        <InputField type="text" label="Full Name" placeholder="Your full name" icon={User} value={name} onChange={setName} />
+        <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
+        <InputField type="tel" label="Mobile Number" placeholder="10-digit mobile number" icon={Phone} value={mobile} onChange={(value) => setMobile(value.replace(/\D/g, '').slice(0, 10))} />
+        <InputField type="password" label="Password" placeholder="Minimum 8 characters" icon={Lock} value={pass} onChange={setPass} />
+        <InputField type="password" label="Confirm Password" placeholder="Repeat your password" icon={Lock} value={confirm} onChange={setConfirm} />
+        <SubmitBtn label={loading ? 'Creating account...' : 'Create Account'} onClick={register} disabled={loading || !name || !email || mobile.length !== 10 || !pass || !confirm} />
+      </> : <>
+        <InputField type="text" label="One-Time Password" placeholder="123456" icon={Shield} value={otp} onChange={(value) => setOtp(value.replace(/\D/g, '').slice(0, 6))} />
+        <SubmitBtn label={loading ? 'Verifying...' : 'Verify and continue'} onClick={verify} disabled={loading || otp.length !== 6} />
+        <button onClick={() => authRequest('resend-otp', { email }).catch((requestError) => setError(requestError.message))} disabled={loading} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontSize: '12px', fontFamily: 'DM Sans, sans-serif', marginBottom: '18px' }}>Resend code</button>
+      </>}
 
-      <label style={{ display: 'flex', gap: '9px', marginBottom: '20px', cursor: 'pointer', alignItems: 'flex-start' }}>
-        <input type="checkbox" style={{ accentColor: 'var(--color-accent)', marginTop: '3px', flexShrink: 0 }} />
-        <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-          I agree to CapitalUp's <span style={{ color: 'var(--color-accent)' }}>Terms of Service</span> and <span style={{ color: 'var(--color-accent)' }}>Privacy Policy</span>. I understand this is not financial advice.
-        </span>
-      </label>
-
-      <SubmitBtn label="Create Account" onClick={() => onNavigate('dashboard')} />
+      {error && <p style={{ color: 'var(--color-error)', background: 'var(--color-error-0.1)', border: '1px solid var(--color-error-0.22)', borderRadius: '8px', padding: '10px', fontSize: '12px', marginBottom: '18px' }}>{error}</p>}
 
       <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--color-text-muted)' }}>
         Already have an account?{' '}

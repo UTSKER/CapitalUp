@@ -15,4 +15,102 @@ function validate(schema) {
   };
 }
 
+const redisClient = require("../config/redis");
+
+const otpRateLimits = {
+  send: {
+    keyPrefix: "rate_limit:send_otp",
+    max: 3,
+    windowSeconds: 60 * 60,
+  },
+  verify: {
+    keyPrefix: "rate_limit:verify_otp",
+    max: 5,
+    windowSeconds: 60 * 60,
+  },
+  resend: {
+    keyPrefix: "rate_limit:resend_otp",
+    max: 2,
+    windowSeconds: 10 * 60,
+  },
+};
+
+function getRateLimitEmail(req) {
+  return (
+    req.body.email ||
+    (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      req.body.identifier || ""
+    )
+      ? req.body.identifier
+      : "")
+  ).toLowerCase();
+}
+
+function rateLimitOTP(action) {
+  const config = otpRateLimits[action];
+
+  if (!config) {
+    throw new Error(`Unknown OTP rate limit action: ${action}`);
+  }
+
+  return async (req, res, next) => {
+    try {
+      const email = getRateLimitEmail(req);
+
+      if (!email) {
+        return next();
+      }
+
+      const lockKey = `lock:otp:${email}`;
+      const lockTtl = await redisClient.ttl(lockKey);
+
+      if (lockTtl > 0) {
+        res.set("Retry-After", String(lockTtl));
+
+        return res.status(429).json({
+          success: false,
+          message:
+            "Too many failed attempts. Please try again later",
+          retryAfter: lockTtl,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const key = `${config.keyPrefix}:${email}`;
+      const count = await redisClient.incr(key);
+
+      if (count === 1) {
+        await redisClient.expire(
+          key,
+          config.windowSeconds
+        );
+      }
+
+      if (count > config.max) {
+        const retryAfter = await redisClient.ttl(key);
+
+        res.set("Retry-After", String(retryAfter));
+
+        console.warn(
+          `OTP rate limit exceeded for ${action}: ${email}`
+        );
+
+        return res.status(429).json({
+          success: false,
+          message:
+            "Too many requests. Please try again later",
+          retryAfter,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+validate.rateLimitOTP = rateLimitOTP;
+
 module.exports = validate;

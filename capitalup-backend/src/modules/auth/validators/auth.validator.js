@@ -10,7 +10,8 @@ const registerSchema = z.object({
   email: z
     .string()
     .trim()
-    .email("Invalid email format"),
+    .email("Invalid email format")
+    .toLowerCase(),
 
   mobile_number: z
     .string()
@@ -50,6 +51,11 @@ const loginSchema = z.object({
   identifier: z
     .string()
     .trim()
+    .transform((value) =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+        ? value.toLowerCase()
+        : value
+    )
     .refine(
       (value) => {
         const isEmail =
@@ -74,6 +80,33 @@ const loginSchema = z.object({
     ),
 });
 
+const sendOTPSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Invalid email format")
+    .toLowerCase(),
+});
+
+const resendOTPSchema = sendOTPSchema;
+
+const verifyOTPSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Invalid email format")
+    .toLowerCase(),
+  otp: z
+    .string()
+    .trim()
+    .length(6, "OTP must be 6 digits")
+    .regex(/^\d+$/, "OTP must be 6 digits"),
+});
+
 module.exports = {
-  registerSchema, loginSchema
+  registerSchema,
+  loginSchema,
+  sendOTPSchema,
+  resendOTPSchema,
+  verifyOTPSchema,
 };

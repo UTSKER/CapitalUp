@@ -73,9 +73,25 @@ async function createUser({
   return result.rows[0];
 }
 
+async function markEmailVerified(email) {
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET is_email_verified = TRUE,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE email = $1
+      RETURNING *;
+    `,
+    [email]
+  );
+
+  return result.rows[0];
+}
+
 module.exports = {
   findUserByEmail,
   findUserByMobile,
   findUserByIdentifier,
   createUser,
+  markEmailVerified,
 };

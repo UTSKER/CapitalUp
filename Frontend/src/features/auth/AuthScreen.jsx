@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, ArrowRight, Shield, CheckCircle, TrendingUp } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, ArrowRight, Shield, CheckCircle, TrendingUp, Phone } from 'lucide-react';
 
 const AUTH_CSS = `
   @keyframes auth-float-a {
@@ -43,6 +43,40 @@ const LEFT_STOCKS = [
   { ticker: 'MSFT', price: '415.23', pct: '+0.87%', up: true },
   { ticker: 'TSLA', price: '248.30', pct: '-1.87%', up: false }
 ];
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+async function authRequest(path, body) {
+  const response = await fetch(`${API_BASE_URL}/auth${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const validationMessage = payload.errors?.[0]?.message;
+    throw new Error(validationMessage || payload.message || 'Request failed');
+  }
+
+  return payload;
+}
+
+function storeAuthSession(result) {
+  const data = result.data || result;
+
+  if (data.accessToken) {
+    localStorage.setItem('capitalup-access-token', data.accessToken);
+  }
+
+  if (data.refreshToken) {
+    localStorage.setItem('capitalup-refresh-token', data.refreshToken);
+  }
+
+  if (data.user) {
+    localStorage.setItem('capitalup-user', JSON.stringify(data.user));
+  }
+}
 
 /* ─── LEFT PANEL ─────────────────────────────────────────────── */
 function LeftPanel() {
@@ -239,20 +273,21 @@ function InputField({ type, label, placeholder, icon: Icon, value, onChange }) {
 }
 
 /* ─── SUBMIT BUTTON ─────────────────────────────────────────────── */
-function SubmitBtn({ label, onClick }) {
+function SubmitBtn({ label, onClick, loading = false }) {
   return (
-    <button onClick={onClick}
+    <button onClick={onClick} disabled={loading}
       style={{
         width: '100%', padding: '13px', background: 'var(--color-accent)', border: 'none',
         borderRadius: '9px', color: 'var(--color-text-inverted)', fontSize: '14px', fontWeight: 600,
         fontFamily: 'DM Sans, sans-serif', cursor: 'pointer', marginBottom: '18px',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-        transition: 'all 0.22s', boxShadow: '0 4px 20px var(--color-accent-0.3)'
+        transition: 'all 0.22s', boxShadow: '0 4px 20px var(--color-accent-0.3)',
+        opacity: loading ? 0.72 : 1
       }}
       onMouseEnter={(e) => { e.currentTarget.style.background = '#3D7BF0'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 28px var(--color-accent-0.4)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 20px var(--color-accent-0.3)'; }}>
       
-      {label} <ArrowRight size={14} />
+      {loading ? 'Please wait...' : label} {!loading && <ArrowRight size={14} />}
     </button>
   );
 }
@@ -294,9 +329,59 @@ function Divider() {
 }
 
 /* ─── FORMS ─────────────────────────────────────────────────────── */
-function LoginForm({ onNavigate }) {
+function FormMessage({ type, children }) {
+  if (!children) return null;
+
+  return (
+    <div style={{
+      marginBottom: '14px',
+      padding: '10px 12px',
+      borderRadius: '8px',
+      background: type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'var(--color-success-0.1)',
+      border: `1px solid ${type === 'error' ? 'rgba(239, 68, 68, 0.28)' : 'var(--color-success-0.22)'}`,
+      color: type === 'error' ? 'var(--color-error)' : 'var(--color-success)',
+      fontSize: '12px',
+      lineHeight: 1.5
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function LoginForm({ onNavigate, onVerificationNeeded }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const result = await authRequest('/login', {
+        identifier: email,
+        password,
+      });
+
+      storeAuthSession(result);
+      onNavigate('dashboard');
+    } catch (err) {
+      if (err.message.toLowerCase().includes('verify your email')) {
+        try {
+          await authRequest('/send-otp', { email });
+        } catch {
+          // The login error is still the useful user-facing state here.
+        }
+        onVerificationNeeded(email);
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div key="login" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.3 }}>
       <div style={{ marginBottom: '28px' }}>
@@ -309,6 +394,7 @@ function LoginForm({ onNavigate }) {
 
       <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
       <InputField type="password" label="Password" placeholder="Your password" icon={Lock} value={password} onChange={setPassword} />
+      <FormMessage type="error">{error}</FormMessage>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '12px', color: 'var(--color-text-muted)' }}>
@@ -320,7 +406,7 @@ function LoginForm({ onNavigate }) {
         </button>
       </div>
 
-      <SubmitBtn label="Sign in to CapitalUp" onClick={() => onNavigate('dashboard')} />
+      <SubmitBtn label="Sign in to CapitalUp" loading={loading} onClick={handleLogin} />
 
       <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--color-text-muted)' }}>
         No account yet?{' '}
@@ -330,11 +416,39 @@ function LoginForm({ onNavigate }) {
   );
 }
 
-function RegisterForm({ onNavigate }) {
+function RegisterForm({ onNavigate, onVerificationNeeded }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [pass, setPass] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    setError('');
+
+    if (pass !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await authRequest('/register', {
+        full_name: name,
+        email,
+        mobile_number: mobile,
+        password: pass,
+      });
+      onVerificationNeeded(email);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <motion.div key="register" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.3 }}>
@@ -345,8 +459,10 @@ function RegisterForm({ onNavigate }) {
 
       <InputField type="text" label="Full Name" placeholder="Your full name" icon={User} value={name} onChange={setName} />
       <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
+      <InputField type="tel" label="Mobile Number" placeholder="10-digit mobile number" icon={Phone} value={mobile} onChange={setMobile} />
       <InputField type="password" label="Password" placeholder="Minimum 12 characters" icon={Lock} value={pass} onChange={setPass} />
       <InputField type="password" label="Confirm Password" placeholder="Repeat your password" icon={Lock} value={confirm} onChange={setConfirm} />
+      <FormMessage type="error">{error}</FormMessage>
 
       <label style={{ display: 'flex', gap: '9px', marginBottom: '20px', cursor: 'pointer', alignItems: 'flex-start' }}>
         <input type="checkbox" style={{ accentColor: 'var(--color-accent)', marginTop: '3px', flexShrink: 0 }} />
@@ -355,11 +471,72 @@ function RegisterForm({ onNavigate }) {
         </span>
       </label>
 
-      <SubmitBtn label="Create Account" onClick={() => onNavigate('dashboard')} />
+      <SubmitBtn label="Create Account" loading={loading} onClick={handleRegister} />
 
       <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--color-text-muted)' }}>
         Already have an account?{' '}
         <button onClick={() => onNavigate('login')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', fontSize: '12px' }}>Sign in</button>
+      </p>
+    </motion.div>
+  );
+}
+
+function OTPForm({ email, onNavigate, onBack }) {
+  const [otp, setOtp] = useState('');
+  const [message, setMessage] = useState('OTP sent to your email.');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleVerify = async () => {
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    try {
+      const result = await authRequest('/verify-otp', { email, otp });
+      storeAuthSession(result);
+      onNavigate('dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    try {
+      await authRequest('/resend-otp', { email });
+      setMessage('A fresh OTP has been sent.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div key="otp" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.3 }}>
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-dim)', fontSize: '12px', fontFamily: 'DM Sans, sans-serif', marginBottom: '24px', padding: 0 }}>
+        <ArrowLeft size={13} /> Back
+      </button>
+
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>Verify your email</h1>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Enter the 6-digit code sent to <strong style={{ color: 'var(--color-text-sub)' }}>{email}</strong>.</p>
+      </div>
+
+      <InputField type="text" label="Verification Code" placeholder="123456" icon={Shield} value={otp} onChange={(value) => setOtp(value.replace(/\D/g, '').slice(0, 6))} />
+      <FormMessage type="success">{message}</FormMessage>
+      <FormMessage type="error">{error}</FormMessage>
+      <SubmitBtn label="Verify Email" loading={loading} onClick={handleVerify} />
+
+      <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+        Didn't get it?{' '}
+        <button onClick={handleResend} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', fontSize: '12px' }}>Resend OTP</button>
       </p>
     </motion.div>
   );
@@ -408,6 +585,12 @@ function ForgotForm({ onNavigate }) {
 
 /* ─── MAIN ────────────────────────────────────────────────────── */
 export function AuthScreen({ mode, onNavigate }) {
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+
+  const handleVerificationNeeded = (email) => {
+    setPendingVerificationEmail(email.trim().toLowerCase());
+  };
+
   return (
     <div style={{
       minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr',
@@ -446,9 +629,10 @@ export function AuthScreen({ mode, onNavigate }) {
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent, var(--color-white-0.12), transparent)', pointerEvents: 'none' }} />
 
           <AnimatePresence mode="wait">
-            {mode === 'login' && <LoginForm onNavigate={onNavigate} />}
-            {mode === 'register' && <RegisterForm onNavigate={onNavigate} />}
-            {mode === 'forgot' && <ForgotForm onNavigate={onNavigate} />}
+            {pendingVerificationEmail && <OTPForm email={pendingVerificationEmail} onNavigate={onNavigate} onBack={() => setPendingVerificationEmail('')} />}
+            {!pendingVerificationEmail && mode === 'login' && <LoginForm onNavigate={onNavigate} onVerificationNeeded={handleVerificationNeeded} />}
+            {!pendingVerificationEmail && mode === 'register' && <RegisterForm onNavigate={onNavigate} onVerificationNeeded={handleVerificationNeeded} />}
+            {!pendingVerificationEmail && mode === 'forgot' && <ForgotForm onNavigate={onNavigate} />}
           </AnimatePresence>
         </div>
 

@@ -7,7 +7,7 @@ async function runMigration() {
     path.join(
       __dirname,
       "migrations",
-      "001_create_users_table.sql"
+      "002_create_profile_table.sql"
     ),
     "utf8"
   );

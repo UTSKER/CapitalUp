@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Mail, Phone, Shield, Key, Check, Copy, Moon, Sun, Terminal, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 export function ProfileSettings({ currentTheme, onChangeTheme }) {
-  const [formData, setFormData] = useState({
-    name: 'James Dornan',
-    email: 'james.dornan@capitalup.com',
-    phone: '+1 (555) 382-9421',
-    company: 'CapitalUp Ventures'
+  const [formData, setFormData] = useState(() => {
+    try {
+      const cachedUser = JSON.parse(localStorage.getItem('capitalup-user') || '{}');
+      return {
+        name: cachedUser.full_name || '',
+        email: cachedUser.email || '',
+        phone: cachedUser.mobile_number || '',
+        company: cachedUser.occupation || ''
+      };
+    } catch (e) {
+      return { name: '', email: '', phone: '', company: '' };
+    }
   });
 
   const [toggles, setToggles] = useState({
@@ -19,6 +26,273 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
   const [copiedKey, setCopiedKey] = useState(false);
   const [savedStatus, setSavedStatus] = useState(false);
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isMobileVerified, setIsMobileVerified] = useState(false);
+  const [profile, setProfile] = useState(null);
+
+  // OTP specific states
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpMessage, setOtpMessage] = useState('');
+  const [otpError, setOtpError] = useState('');
+
+  // Password change states
+  const [pwData, setPwData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+  const [forgotPwMessage, setForgotPwMessage] = useState('');
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+    setForgotPwMessage('');
+
+    if (pwData.newPassword !== pwData.confirmPassword) {
+      setPwError('New passwords do not match');
+      return;
+    }
+
+    setPwLoading(true);
+    try {
+      const token = localStorage.getItem('capitalup-access-token');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: pwData.currentPassword,
+          newPassword: pwData.newPassword
+        })
+      });
+
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        setPwSuccess('Password updated successfully!');
+        setPwData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        setPwError(payload.message || 'Failed to update password');
+      }
+    } catch (err) {
+      setPwError('Failed to change password.');
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  const handleForgotClick = () => {
+    setForgotPwMessage('A password reset OTP/link has been sent to your email.');
+    setPwError('');
+    setPwSuccess('');
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const token = localStorage.getItem('capitalup-access-token');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE_URL}/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        const data = payload.data;
+        setProfile(data);
+        setFormData({
+          name: data.full_name || '',
+          email: data.email || '',
+          phone: data.mobile_number || '',
+          company: data.occupation || ''
+        });
+        setIsMobileVerified(data.is_mobile_verified || false);
+      } else {
+        setError(payload.message || 'Failed to load profile');
+      }
+    } catch (err) {
+      setError('Failed to load profile details from server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSavedStatus(false);
+    setError('');
+    
+    try {
+      const token = localStorage.getItem('capitalup-access-token');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          full_name: formData.name,
+          mobile_number: formData.phone,
+          occupation: formData.company
+        })
+      });
+      
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        setSavedStatus(true);
+        const updated = payload.data;
+        setProfile(updated);
+        setIsMobileVerified(updated.is_mobile_verified || false);
+        
+        // Also update cached user in localStorage
+        const userStr = localStorage.getItem('capitalup-user');
+        if (userStr) {
+          const userObj = JSON.parse(userStr);
+          userObj.full_name = updated.full_name;
+          userObj.mobile_number = updated.mobile_number;
+          userObj.is_mobile_verified = updated.is_mobile_verified;
+          localStorage.setItem('capitalup-user', JSON.stringify(userObj));
+        }
+        setTimeout(() => setSavedStatus(false), 3000);
+      } else {
+        setError(payload.message || 'Failed to update profile');
+      }
+    } catch (err) {
+      setError('Failed to save profile changes.');
+    }
+  };
+
+  const handleSendMobileOtp = async () => {
+    if (!formData.phone || !/^[0-9]{10}$/.test(formData.phone)) {
+      setOtpError('Please enter a valid 10-digit phone number first.');
+      return;
+    }
+
+    setOtpError('');
+    setOtpMessage('');
+    setOtpLoading(true);
+    
+    try {
+      const token = localStorage.getItem('capitalup-access-token');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      
+      // Defensively construct PATCH payload to prevent validation failure for empty fields
+      const patchData = {
+        mobile_number: formData.phone
+      };
+      if (formData.name && formData.name.trim().length >= 2) {
+        patchData.full_name = formData.name.trim();
+      }
+      if (formData.company) {
+        patchData.occupation = formData.company;
+      }
+
+      // Auto-save the new phone number to the backend profile first
+      const saveRes = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(patchData)
+      });
+
+      if (!saveRes.ok) {
+        const savePayload = await saveRes.json();
+        throw new Error(savePayload.message || 'Failed to update phone number in profile.');
+      }
+
+      setIsMobileVerified(false);
+
+      // Trigger OTP sending
+      const res = await fetch(`${API_BASE_URL}/auth/send-mobile-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ mobile_number: formData.phone })
+      });
+      
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        setOtpMessage('Verification SMS sent successfully.');
+        setShowOtpInput(true);
+      } else {
+        setOtpError(payload.message || 'Failed to send verification code.');
+      }
+    } catch (err) {
+      setOtpError(err.message || 'Failed to send verification SMS.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyMobileOtp = async () => {
+    if (!otpCode || otpCode.length < 4) {
+      setOtpError('Please enter a valid OTP code.');
+      return;
+    }
+    
+    setOtpError('');
+    setOtpMessage('');
+    setOtpLoading(true);
+    
+    try {
+      const token = localStorage.getItem('capitalup-access-token');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE_URL}/auth/verify-mobile-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ mobile_number: formData.phone, otp: otpCode })
+      });
+      
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        setIsMobileVerified(true);
+        setOtpMessage('Mobile number verified successfully!');
+        
+        // Update cached user in localStorage
+        const userStr = localStorage.getItem('capitalup-user');
+        if (userStr) {
+          const userObj = JSON.parse(userStr);
+          userObj.mobile_number = formData.phone;
+          userObj.is_mobile_verified = true;
+          localStorage.setItem('capitalup-user', JSON.stringify(userObj));
+        }
+        
+        setTimeout(() => {
+          setShowOtpInput(false);
+          setOtpMessage('');
+          setOtpCode('');
+        }, 2500);
+      } else {
+        setOtpError(payload.message || 'Invalid verification code.');
+      }
+    } catch (err) {
+      setOtpError('Failed to verify OTP.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const rawApiKey = 'cu_live_83f920da1bcde0837e7a828e192ff83c79a1f';
   const displayApiKey = apiKeyVisible ? rawApiKey : 'cu_live_••••••••••••••••••••••••••••••••••••';
 
@@ -26,12 +300,6 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
     navigator.clipboard.writeText(rawApiKey);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
-  };
-
-  const handleSave = (e) => {
-    e.preventDefault();
-    setSavedStatus(true);
-    setTimeout(() => setSavedStatus(false), 3000);
   };
 
   const themeOptions = [
@@ -49,7 +317,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
       id: 'light',
       name: 'Greyish Light',
       description: 'Clean off-white backgrounds with deep slate text and rich cobalt accents.',
-      bg: '#F4F5F6',
+      bg: '#EAECEE',
       primary: '#2563EB',
       foreground: '#1A1D20',
       cardBg: '#FFFFFF',
@@ -66,6 +334,20 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
       icon: Terminal
     }
   ];
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '12px' }}>
+        <div style={{ width: '30px', height: '30px', border: '3px solid var(--color-white-0.08)', borderTopColor: 'var(--color-accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <span style={{ fontSize: '13px', color: 'var(--color-text-muted)', fontFamily: 'DM Sans, sans-serif' }}>Loading settings...</span>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        ` }} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -87,6 +369,22 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           Account Profile & Settings
         </h1>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          color: 'var(--color-error)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '13px',
+          fontWeight: 500,
+          fontFamily: 'DM Sans, sans-serif'
+        }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }} className="max-xl:grid-cols-1">
         
@@ -222,17 +520,18 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    disabled
                     style={{
                       width: '100%',
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
+                      background: 'var(--color-white-0.02)',
+                      border: '1px solid var(--color-white-0.04)',
                       borderRadius: '8px',
                       padding: '10px 14px',
-                      color: 'var(--color-text-main)',
+                      color: 'var(--color-text-muted)',
                       fontSize: '13px',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
+                      cursor: 'not-allowed'
                     }} />
                 </div>
                 <div>
@@ -240,40 +539,23 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled
                     style={{
                       width: '100%',
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
+                      background: 'var(--color-white-0.02)',
+                      border: '1px solid var(--color-white-0.04)',
                       borderRadius: '8px',
                       padding: '10px 14px',
-                      color: 'var(--color-text-main)',
+                      color: 'var(--color-text-muted)',
                       fontSize: '13px',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
+                      cursor: 'not-allowed'
                     }} />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="max-md:grid-cols-1">
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Phone Number</label>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    style={{
-                      width: '100%',
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      color: 'var(--color-text-main)',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }} />
-                </div>
+              <div style={{ display: isMobileVerified ? 'grid' : 'block', gridTemplateColumns: isMobileVerified ? '1fr 1fr' : 'none', gap: '16px' }} className="max-md:grid-cols-1">
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Investment Entity / Company</label>
                   <input
@@ -292,26 +574,68 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                       boxSizing: 'border-box'
                     }} />
                 </div>
+
+                {isMobileVerified && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Phone Number</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={formData.phone}
+                        disabled
+                        style={{
+                          width: '100%',
+                          background: 'var(--color-white-0.02)',
+                          border: '1px solid var(--color-white-0.04)',
+                          borderRadius: '8px',
+                          padding: '10px 14px',
+                          paddingRight: '80px',
+                          color: 'var(--color-text-muted)',
+                          fontSize: '13px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          cursor: 'not-allowed'
+                        }} />
+                      <span style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '11px',
+                        color: 'var(--color-success)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        background: 'var(--color-success-0.1)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontWeight: 500
+                      }}>
+                        <CheckCircle size={11} /> Verified
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
                 <button
-                  type="submit"
-                  style={{
-                    background: 'var(--color-accent)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 24px',
-                    color: 'var(--color-text-inverted)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 12px var(--color-accent-0.2)',
-                    transition: 'all 0.2s'
-                  }}>
+                   type="submit"
+                   style={{
+                     background: 'var(--color-accent)',
+                     border: 'none',
+                     borderRadius: '8px',
+                     padding: '10px 24px',
+                     color: 'var(--color-text-inverted)',
+                     fontSize: '13px',
+                     fontWeight: 600,
+                     cursor: 'pointer',
+                     display: 'flex',
+                     alignItems: 'center',
+                     gap: '8px',
+                     boxShadow: '0 4px 12px var(--color-accent-0.2)',
+                     transition: 'all 0.2s'
+                   }}>
                   Save Profiles Changes
                 </button>
 
@@ -324,6 +648,156 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
               </div>
             </form>
           </div>
+
+          {/* Mobile Verification Box */}
+          {!isMobileVerified && (
+            <div
+              style={{
+                background: 'var(--color-bg-panel-0.95)',
+                border: '1px solid var(--color-white-0.07)',
+                borderRadius: '14px',
+                padding: '24px'
+              }}>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <Phone size={16} color="var(--color-accent)" />
+                <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-text-main)', fontFamily: 'DM Sans, sans-serif', margin: 0 }}>Mobile Verification</h2>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+                Verify your mobile number to enable SMS notifications and secure two-factor authentication.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Phone Number</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="Enter 10-digit number"
+                      style={{
+                        flex: 1,
+                        background: 'var(--color-white-0.04)',
+                        border: '1px solid var(--color-white-0.08)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        color: 'var(--color-text-main)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }} />
+                    <button
+                      type="button"
+                      onClick={handleSendMobileOtp}
+                      disabled={otpLoading}
+                      style={{
+                        background: 'var(--color-accent)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        color: 'var(--color-text-inverted)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px var(--color-accent-0.2)',
+                        transition: 'all 0.2s',
+                        whiteSpace: 'nowrap'
+                      }}>
+                      {otpLoading ? 'Sending...' : 'Send OTP'}
+                    </button>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                    {isMobileVerified ? (
+                      <span style={{ fontSize: '11px', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--color-success-0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 500 }}>
+                        <CheckCircle size={12} /> Verified
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--color-warning-0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 500 }}>
+                        Unverified
+                      </span>
+                    )}
+                  </div>
+
+                  {otpMessage && (
+                    <div style={{ fontSize: '11px', color: 'var(--color-success)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle size={12} /> {otpMessage}
+                    </div>
+                  )}
+
+                  {otpError && (
+                    <div style={{ fontSize: '11px', color: 'var(--color-error)', marginTop: '8px' }}>{otpError}</div>
+                  )}
+
+                  {showOtpInput && (
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        background: 'var(--color-white-0.03)',
+                        border: '1px solid var(--color-white-0.08)',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}>
+                      <div style={{ fontSize: '12px', color: 'var(--color-text-sub)' }}>
+                        Enter the 6-digit verification code sent to your phone:
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          placeholder="6-digit OTP"
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          style={{
+                            flex: 1,
+                            background: 'var(--color-white-0.04)',
+                            border: '1px solid var(--color-white-0.08)',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            color: 'var(--color-text-main)',
+                            fontSize: '13px',
+                            outline: 'none'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleVerifyMobileOtp}
+                          disabled={otpLoading}
+                          style={{
+                            background: 'var(--color-success)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '10px 24px',
+                            color: 'var(--color-text-inverted)',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px var(--color-success-0.2)',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap'
+                          }}>
+                          {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                        Didn't get the code?{' '}
+                        <button
+                          type="button"
+                          onClick={handleSendMobileOtp}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontWeight: 500, padding: 0, fontSize: '11px' }}>
+                          Resend Code
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* API keys */}
           <div
@@ -385,6 +859,148 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
               </button>
             </div>
           </div>
+
+          {/* Change Password Card */}
+          <div
+            style={{
+              background: 'var(--color-bg-panel-0.95)',
+              border: '1px solid var(--color-white-0.07)',
+              borderRadius: '14px',
+              padding: '24px'
+            }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Key size={16} color="var(--color-accent)" />
+              <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-text-main)', fontFamily: 'DM Sans, sans-serif', margin: 0 }}>Security Password Update</h2>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+              To change your password, first enter your current password, followed by your new password.
+            </p>
+
+            <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Current Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Enter current password"
+                  value={pwData.currentPassword}
+                  onChange={(e) => setPwData({ ...pwData, currentPassword: e.target.value })}
+                  style={{
+                    width: '100%',
+                    background: 'var(--color-white-0.04)',
+                    border: '1px solid var(--color-white-0.08)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    color: 'var(--color-text-main)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }} />
+                
+                {/* Forgot password option right below last password input */}
+                <div style={{ marginTop: '6px', textAlign: 'left' }}>
+                  <button
+                    type="button"
+                    onClick={handleForgotClick}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-accent)',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      fontFamily: 'DM Sans, sans-serif',
+                      padding: 0
+                    }}>
+                    Forgot your current password?
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="max-md:grid-cols-1">
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>New Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Minimum 8 characters"
+                    value={pwData.newPassword}
+                    onChange={(e) => setPwData({ ...pwData, newPassword: e.target.value })}
+                    style={{
+                      width: '100%',
+                      background: 'var(--color-white-0.04)',
+                      border: '1px solid var(--color-white-0.08)',
+                      borderRadius: '8px',
+                      padding: '10px 14px',
+                      color: 'var(--color-text-main)',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Repeat new password"
+                    value={pwData.confirmPassword}
+                    onChange={(e) => setPwData({ ...pwData, confirmPassword: e.target.value })}
+                    style={{
+                      width: '100%',
+                      background: 'var(--color-white-0.04)',
+                      border: '1px solid var(--color-white-0.08)',
+                      borderRadius: '8px',
+                      padding: '10px 14px',
+                      color: 'var(--color-text-main)',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }} />
+                </div>
+              </div>
+
+              {pwError && (
+                <div style={{ fontSize: '12.5px', color: 'var(--color-error)', fontWeight: 500 }}>
+                  {pwError}
+                </div>
+              )}
+
+              {pwSuccess && (
+                <div style={{ fontSize: '12.5px', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle size={14} /> {pwSuccess}
+                </div>
+              )}
+
+              {forgotPwMessage && (
+                <div style={{ fontSize: '12.5px', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle size={14} /> {forgotPwMessage}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', marginTop: '4px' }}>
+                <button
+                  type="submit"
+                  disabled={pwLoading}
+                  style={{
+                    background: 'var(--color-accent)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 24px',
+                    color: 'var(--color-text-inverted)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px var(--color-accent-0.2)',
+                    transition: 'all 0.2s',
+                    opacity: pwLoading ? 0.8 : 1
+                  }}>
+                  {pwLoading ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
 
         {/* Right column: Card details / info widgets */}
@@ -418,12 +1034,12 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                 color: 'var(--color-text-inverted)',
                 boxShadow: '0 8px 24px var(--color-accent-0.2)'
               }}>
-              JD
+              {formData.name ? formData.name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
             </div>
 
             <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '4px' }}>James Dornan</h3>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>james.dornan@capitalup.com</div>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '4px' }}>{formData.name || 'User'}</h3>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{formData.email || 'user@example.com'}</div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--color-accent-0.1)', border: '1px solid var(--color-accent-0.3)', borderRadius: '100px', padding: '4px 14px' }}>
@@ -439,7 +1055,9 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Joined Platform</span>
-                <span style={{ color: 'var(--color-text-sub)' }}>June 2, 2024</span>
+                <span style={{ color: 'var(--color-text-sub)' }}>
+                  {profile && profile.created_at ? new Date(profile.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'June 2, 2024'}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Primary Currency</span>

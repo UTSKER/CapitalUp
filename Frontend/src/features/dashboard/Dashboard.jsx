@@ -24,6 +24,11 @@ const recentActivity = [
 ];
 
 export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
+  const user = JSON.parse(localStorage.getItem('capitalup-user') || '{}');
+  const fullName = user.full_name || 'James Dornan';
+  const firstName = fullName.split(' ')[0] || 'James';
+  const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'JD';
+
   const [activeTab, setActiveTab] = useState('overview');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -189,7 +194,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                   fontWeight: 700,
                   color: 'var(--color-text-inverted)'
                 }}>
-                JD
+                {initials}
               </div>
               <ChevronDown size={12} color="var(--color-text-muted)" />
             </button>
@@ -216,7 +221,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               {/* Page header */}
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>
-                  Good morning, James — Tuesday, June 2, 2026
+                  Good morning, {firstName} — Tuesday, June 2, 2026
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
                   <h1

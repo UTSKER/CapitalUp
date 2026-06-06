@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, ArrowRight, Shield, CheckCircle, TrendingUp, Phone } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, ArrowRight, Shield, CheckCircle, TrendingUp } from 'lucide-react';
 
 const AUTH_CSS = `
   @keyframes auth-float-a {
@@ -27,6 +27,12 @@ const AUTH_CSS = `
   input:-webkit-autofill:active {
     transition: background-color 5000s ease-in-out 0s;
     -webkit-text-fill-color: var(--color-text-main) !important;
+  }
+
+  /* Improve placeholder visibility */
+  input::placeholder {
+    color: var(--color-text-sub) !important;
+    opacity: 0.65 !important;
   }
 `;
 
@@ -76,6 +82,9 @@ function storeAuthSession(result) {
   if (data.user) {
     localStorage.setItem('capitalup-user', JSON.stringify(data.user));
   }
+
+  // Store user's session expiry for 7 days
+  localStorage.setItem('capitalup-session-expiry', (Date.now() + 7 * 24 * 60 * 60 * 1000).toString());
 }
 
 /* ─── LEFT PANEL ─────────────────────────────────────────────── */
@@ -240,8 +249,8 @@ function InputField({ type, label, placeholder, icon: Icon, value, onChange }) {
       <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--color-text-sub)', marginBottom: '7px', letterSpacing: '0.025em' }}>{label}</label>
       <div style={{
         position: 'relative', display: 'flex', alignItems: 'center',
-        background: 'var(--color-white-0.04)',
-        border: `1px solid ${focused ? 'var(--color-accent-0.5)' : 'var(--color-white-0.08)'}`,
+        background: 'var(--color-white-0.08)',
+        border: `1px solid ${focused ? 'var(--color-accent-0.5)' : 'var(--color-white-0.12)'}`,
         borderRadius: '9px', transition: 'all 0.2s',
         boxShadow: focused ? '0 0 0 3px var(--color-accent-0.1)' : 'none'
       }}>
@@ -348,11 +357,166 @@ function FormMessage({ type, children }) {
   );
 }
 
+/* ─── UNREGISTERED USER ALERT MODAL ────────────────────────────── */
+function UnregisteredAlertModal({ isOpen, onClose, onSignUp }) {
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(5, 7, 10, 0.85)', backdropFilter: 'blur(12px)',
+      animation: 'auth-fade-in 0.2s ease-out',
+      boxSizing: 'border-box',
+      padding: '20px'
+    }} onClick={onClose}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes auth-fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes auth-scale-up { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      `}} />
+      <div style={{
+        background: 'var(--color-bg-panel-0.98)', border: '1px solid var(--color-white-0.12)',
+        borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '380px',
+        boxShadow: '0 24px 64px var(--color-black-0.8), 0 0 40px var(--color-accent-0.1)',
+        animation: 'auth-scale-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        textAlign: 'center',
+        boxSizing: 'border-box'
+      }} onClick={(e) => e.stopPropagation()}>
+        
+        {/* Warning Icon */}
+        <div style={{
+          width: '56px', height: '56px', background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 18px'
+        }}>
+          <Shield size={26} color="var(--color-error)" />
+        </div>
+
+        <h3 style={{
+          fontFamily: 'EB Garamond, Georgia, serif', fontSize: '22px',
+          fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '10px'
+        }}>
+          Account Not Found
+        </h3>
+        
+        <p style={{
+          fontSize: '13.5px', color: 'var(--color-text-muted)',
+          lineHeight: 1.6, marginBottom: '24px', marginHorizontal: 0
+        }}>
+          The email you entered is not registered on CapitalUp. Please register yourself first.
+        </p>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '11px', background: 'var(--color-white-0.05)',
+            border: '1px solid var(--color-white-0.08)', borderRadius: '8px',
+            color: 'var(--color-text-sub)', fontSize: '13px', fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-white-0.1)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-white-0.05)'}>
+            Try Again
+          </button>
+          
+          <button onClick={onSignUp} style={{
+            flex: 1, padding: '11px', background: 'var(--color-accent)',
+            border: 'none', borderRadius: '8px',
+            color: 'var(--color-text-inverted)', fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s',
+            boxShadow: '0 4px 14px var(--color-accent-0.3)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#3D7BF0'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-accent)'}>
+            Register
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── ALREADY REGISTERED ALERT MODAL ────────────────────────────── */
+function AlreadyRegisteredAlertModal({ isOpen, onClose, onLogin }) {
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(5, 7, 10, 0.85)', backdropFilter: 'blur(12px)',
+      animation: 'auth-fade-in 0.2s ease-out',
+      boxSizing: 'border-box',
+      padding: '20px'
+    }} onClick={onClose}>
+      <div style={{
+        background: 'var(--color-bg-panel-0.98)', border: '1px solid var(--color-white-0.12)',
+        borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '380px',
+        boxShadow: '0 24px 64px var(--color-black-0.8), 0 0 40px var(--color-accent-0.1)',
+        animation: 'auth-scale-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        textAlign: 'center',
+        boxSizing: 'border-box'
+      }} onClick={(e) => e.stopPropagation()}>
+        
+        {/* Info/Check Icon */}
+        <div style={{
+          width: '56px', height: '56px', background: 'rgba(59, 130, 246, 0.1)',
+          border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 18px'
+        }}>
+          <CheckCircle size={26} color="var(--color-accent)" />
+        </div>
+
+        <h3 style={{
+          fontFamily: 'EB Garamond, Georgia, serif', fontSize: '22px',
+          fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '10px'
+        }}>
+          Already Registered
+        </h3>
+        
+        <p style={{
+          fontSize: '13.5px', color: 'var(--color-text-muted)',
+          lineHeight: 1.6, marginBottom: '24px', marginHorizontal: 0
+        }}>
+          This email is already registered on CapitalUp. Please go to the log in page.
+        </p>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '11px', background: 'var(--color-white-0.05)',
+            border: '1px solid var(--color-white-0.08)', borderRadius: '8px',
+            color: 'var(--color-text-sub)', fontSize: '13px', fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-white-0.1)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-white-0.05)'}>
+            Cancel
+          </button>
+          
+          <button onClick={onLogin} style={{
+            flex: 1, padding: '11px', background: 'var(--color-accent)',
+            border: 'none', borderRadius: '8px',
+            color: 'var(--color-text-inverted)', fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s',
+            boxShadow: '0 4px 14px var(--color-accent-0.3)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#3D7BF0'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-accent)'}>
+            Go to Log In
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoginForm({ onNavigate, onVerificationNeeded }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showUnregisteredAlert, setShowUnregisteredAlert] = useState(false);
 
   const handleLogin = async () => {
     setError('');
@@ -367,13 +531,16 @@ function LoginForm({ onNavigate, onVerificationNeeded }) {
       storeAuthSession(result);
       onNavigate('dashboard');
     } catch (err) {
-      if (err.message.toLowerCase().includes('verify your email')) {
+      const errMsg = err.message.toLowerCase();
+      if (errMsg.includes('verify your email')) {
         try {
           await authRequest('/send-otp', { email });
         } catch {
           // The login error is still the useful user-facing state here.
         }
         onVerificationNeeded(email);
+      } else if (errMsg.includes('email not registered') || errMsg.includes('user not found')) {
+        setShowUnregisteredAlert(true);
       } else {
         setError(err.message);
       }
@@ -412,6 +579,15 @@ function LoginForm({ onNavigate, onVerificationNeeded }) {
         No account yet?{' '}
         <button onClick={() => onNavigate('register')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', fontSize: '12px' }}>Create one</button>
       </p>
+
+      <UnregisteredAlertModal 
+        isOpen={showUnregisteredAlert} 
+        onClose={() => setShowUnregisteredAlert(false)} 
+        onSignUp={() => {
+          setShowUnregisteredAlert(false);
+          onNavigate('register');
+        }} 
+      />
     </motion.div>
   );
 }
@@ -419,11 +595,11 @@ function LoginForm({ onNavigate, onVerificationNeeded }) {
 function RegisterForm({ onNavigate, onVerificationNeeded }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
   const [pass, setPass] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showAlreadyRegisteredAlert, setShowAlreadyRegisteredAlert] = useState(false);
 
   const handleRegister = async () => {
     setError('');
@@ -439,12 +615,15 @@ function RegisterForm({ onNavigate, onVerificationNeeded }) {
       await authRequest('/register', {
         full_name: name,
         email,
-        mobile_number: mobile,
         password: pass,
       });
       onVerificationNeeded(email);
     } catch (err) {
-      setError(err.message);
+      if (err.message.toLowerCase().includes('already exists') || err.message.toLowerCase().includes('already registered')) {
+        setShowAlreadyRegisteredAlert(true);
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -459,7 +638,6 @@ function RegisterForm({ onNavigate, onVerificationNeeded }) {
 
       <InputField type="text" label="Full Name" placeholder="Your full name" icon={User} value={name} onChange={setName} />
       <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
-      <InputField type="tel" label="Mobile Number" placeholder="10-digit mobile number" icon={Phone} value={mobile} onChange={setMobile} />
       <InputField type="password" label="Password" placeholder="Minimum 12 characters" icon={Lock} value={pass} onChange={setPass} />
       <InputField type="password" label="Confirm Password" placeholder="Repeat your password" icon={Lock} value={confirm} onChange={setConfirm} />
       <FormMessage type="error">{error}</FormMessage>
@@ -477,6 +655,15 @@ function RegisterForm({ onNavigate, onVerificationNeeded }) {
         Already have an account?{' '}
         <button onClick={() => onNavigate('login')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', fontSize: '12px' }}>Sign in</button>
       </p>
+
+      <AlreadyRegisteredAlertModal 
+        isOpen={showAlreadyRegisteredAlert} 
+        onClose={() => setShowAlreadyRegisteredAlert(false)} 
+        onLogin={() => {
+          setShowAlreadyRegisteredAlert(false);
+          onNavigate('login');
+        }} 
+      />
     </motion.div>
   );
 }
@@ -543,8 +730,59 @@ function OTPForm({ email, onNavigate, onBack }) {
 }
 
 function ForgotForm({ onNavigate }) {
+  const [step, setStep] = useState('email'); // 'email' or 'reset'
   const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSendOTP = async (e) => {
+    if (e) e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      await authRequest('/send-otp', { email, forceSend: true });
+      setSuccess('Reset code sent to your email.');
+      setStep('reset');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    if (e) e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authRequest('/reset-password', {
+        email,
+        otp,
+        newPassword: password
+      });
+      setSuccess('Password reset successfully! Redirecting to login...');
+      setTimeout(() => {
+        onNavigate('login');
+      }, 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <motion.div key="forgot" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.3 }}>
@@ -554,30 +792,37 @@ function ForgotForm({ onNavigate }) {
         <ArrowLeft size={13} /> Back to sign in
       </button>
 
-      {!sent ?
-        <>
+      {step === 'email' ?
+        <form onSubmit={handleSendOTP}>
           <div style={{ marginBottom: '26px' }}>
             <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '26px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>Reset password</h1>
-            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Enter your email and we'll send you a secure reset link valid for 15 minutes.</p>
+            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Enter your email and we'll send you a 6-digit verification code to reset your password.</p>
           </div>
           <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
+          <FormMessage type="error">{error}</FormMessage>
+          <FormMessage type="success">{success}</FormMessage>
           <div style={{ marginTop: '8px' }}>
-            <SubmitBtn label="Send Reset Link" onClick={() => setSent(true)} />
+            <SubmitBtn label="Send Reset OTP" loading={loading} />
           </div>
-        </> :
+        </form> :
 
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: 'center', padding: '20px 0' }}>
-          <div style={{ width: '56px', height: '56px', background: 'var(--color-success-0.1)', border: '1px solid var(--color-success-0.22)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-            <CheckCircle size={26} color="var(--color-success)" />
+        <form onSubmit={handleResetPassword}>
+          <div style={{ marginBottom: '26px' }}>
+            <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '26px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>Enter new password</h1>
+            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Verify the code sent to <strong style={{ color: 'var(--color-text-sub)' }}>{email}</strong> and choose your new password.</p>
           </div>
-          <h2 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '21px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '10px' }}>Check your inbox</h2>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.7, marginBottom: '24px' }}>
-            A reset link has been sent to <strong style={{ color: 'var(--color-text-sub)' }}>{email || 'your email'}</strong>. It expires in 15 minutes.
-          </p>
-          <button onClick={() => onNavigate('login')} style={{ background: 'var(--color-white-0.05)', border: '1px solid var(--color-white-0.09)', borderRadius: '9px', color: 'var(--color-text-main)', fontSize: '13px', padding: '11px 22px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s' }}>
-            Return to sign in
-          </button>
-        </motion.div>
+          
+          <InputField type="text" label="Verification Code" placeholder="123456" icon={Shield} value={otp} onChange={(value) => setOtp(value.replace(/\D/g, '').slice(0, 6))} />
+          <InputField type="password" label="New Password" placeholder="Minimum 8 characters" icon={Lock} value={password} onChange={setPassword} />
+          <InputField type="password" label="Confirm New Password" placeholder="Repeat your new password" icon={Lock} value={confirmPassword} onChange={setConfirmPassword} />
+          
+          <FormMessage type="error">{error}</FormMessage>
+          <FormMessage type="success">{success}</FormMessage>
+          
+          <div style={{ marginTop: '8px' }}>
+            <SubmitBtn label="Reset Password" loading={loading} />
+          </div>
+        </form>
       }
     </motion.div>
   );

@@ -377,7 +377,7 @@ function HeroDashboard() {
 }
 
 /* ─── HERO SECTION ───────────────────────────────────────────────── */
-function Hero({ onNavigate }) {
+function Hero({ onNavigate, onShowPreview }) {
   return (
     <section style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
@@ -436,13 +436,13 @@ function Hero({ onNavigate }) {
               padding: '13px 26px', borderRadius: '9px', transition: 'all 0.25s',
               boxShadow: '0 0 0 1px var(--color-accent-0.4), 0 8px 28px var(--color-accent-0.3)'
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#3D7BF0'; e.currentTarget.style.boxShadow = '0 0 0 1px var(--color-accent-0.5), 0 16px 44px var(--color-accent-0.4)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#3D7BF0'; e.currentTarget.style.boxShadow = '0 0 0 1px var(--color-accent-0.5), 0 20px 56px var(--color-accent-0.45)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.boxShadow = '0 0 0 1px var(--color-accent-0.4), 0 8px 28px var(--color-accent-0.3)'; }}>
             
             Start Investing <ArrowRight size={15} />
           </button>
           <button
-            onClick={() => onNavigate('dashboard')}
+            onClick={onShowPreview}
             style={{
               display: 'flex', alignItems: 'center', gap: '7px',
               background: 'var(--color-white-0.04)', border: '1px solid var(--color-white-0.1)',
@@ -477,11 +477,13 @@ function Hero({ onNavigate }) {
 
       {/* Right: Dashboard */}
       <motion.div
+        onClick={onShowPreview}
         initial={{ opacity: 0, x: 40 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 1, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-        style={{ flex: '0 0 54%', position: 'relative', zIndex: 1 }}>
-        
+        style={{ flex: '0 0 54%', position: 'relative', zIndex: 1, cursor: 'pointer' }}
+        whileHover={{ scale: 1.015, filter: 'brightness(1.04)' }}
+      >
         <HeroDashboard />
       </motion.div>
     </section>
@@ -557,7 +559,7 @@ function FeaturesSection() {
 }
 
 /* ─── PLATFORM PREVIEW ────────────────────────────────────────────── */
-function PlatformPreview({ onNavigate }) {
+function PlatformPreview({ onShowPreview }) {
   return (
     <section style={{ padding: '0 80px 96px' }}>
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: '44px' }}>
@@ -569,7 +571,20 @@ function PlatformPreview({ onNavigate }) {
 
       <motion.div initial={{ opacity: 0, y: 36 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
         {/* Browser-frame mockup */}
-        <div style={{ background: 'var(--color-bg-panel-0.95)', border: '1px solid var(--color-white-0.08)', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 60px 140px -20px var(--color-black-0.7)' }}>
+        <div 
+          onClick={onShowPreview}
+          style={{ 
+            background: 'var(--color-bg-panel-0.95)', 
+            border: '1px solid var(--color-white-0.08)', 
+            borderRadius: '18px', 
+            overflow: 'hidden', 
+            boxShadow: '0 60px 140px -20px var(--color-black-0.7)',
+            cursor: 'pointer',
+            transition: 'transform 0.3s ease, filter 0.3s ease'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.008)'; e.currentTarget.style.filter = 'brightness(1.03)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.filter = 'none'; }}
+        >
           {/* Browser chrome */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderBottom: '1px solid var(--color-white-0.06)', background: 'var(--color-bg-nav-0.9)' }}>
             {['var(--color-error)', 'var(--color-warning)', 'var(--color-success)'].map((c, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', background: c, opacity: 0.75 }} />)}
@@ -631,7 +646,7 @@ function PlatformPreview({ onNavigate }) {
       </motion.div>
 
       <div style={{ textAlign: 'center', marginTop: '28px' }}>
-        <button onClick={() => onNavigate('dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontSize: '13px', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', transition: 'opacity 0.2s' }}
+        <button onClick={onShowPreview} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-accent)', fontSize: '13px', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', transition: 'opacity 0.2s' }}
           onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.7'; }}
           onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
           Open Live Dashboard <ChevronRight size={15} />
@@ -851,23 +866,266 @@ function Footer({ onNavigate }) {
   );
 }
 
+/* ─── PREVIEW MODAL ────────────────────────────────────────────────── */
+function PreviewModal({ isOpen, onClose, onRegister }) {
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(5, 7, 10, 0.82)',
+        backdropFilter: 'blur(16px)',
+        padding: '20px',
+        animation: 'tx-fade-in 0.25s ease-out'
+      }} 
+      onClick={onClose}
+    >
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes tx-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes tx-slide-up {
+          from { transform: translateY(24px) scale(0.96); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+      `}} />
+      <div 
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '720px',
+          background: 'var(--color-bg-panel-0.98)',
+          border: '1px solid var(--color-white-0.12)',
+          borderRadius: '20px',
+          boxShadow: '0 32px 80px var(--color-black-0.9), 0 0 60px var(--color-accent-0.15)',
+          overflow: 'hidden',
+          animation: 'tx-slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Banner */}
+        <div style={{
+          background: 'linear-gradient(90deg, var(--color-accent-0.2) 0%, var(--color-success-0.15) 100%)',
+          padding: '12px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid var(--color-white-0.08)'
+        }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-accent)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            ✨ Interactive Dashboard Preview (Mock)
+          </span>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'var(--color-white-0.05)',
+              border: '1px solid var(--color-white-0.1)',
+              borderRadius: '6px',
+              color: 'var(--color-text-sub)',
+              fontSize: '11px',
+              fontWeight: 500,
+              padding: '5px 12px',
+              cursor: 'pointer',
+              fontFamily: 'DM Sans, sans-serif',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => { e.target.style.background = 'var(--color-white-0.12)'; e.target.style.color = 'var(--color-text-main)'; }}
+            onMouseLeave={(e) => { e.target.style.background = 'var(--color-white-0.05)'; e.target.style.color = 'var(--color-text-sub)'; }}
+          >
+            Close
+          </button>
+        </div>
+
+        {/* Modal Content */}
+        <div style={{ padding: '24px', maxHeight: '70vh', overflowY: 'auto' }}>
+          <div style={{
+            background: 'var(--color-bg-panel-0.96)',
+            border: '1px solid var(--color-white-0.1)',
+            borderRadius: '18px',
+            boxShadow: '0 0 0 1px var(--color-white-0.04), 0 24px 60px -12px var(--color-black-0.8)',
+            overflow: 'hidden',
+            position: 'relative'
+          }}>
+            {/* Inner top edge highlight */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent 5%, var(--color-white-0.14) 50%, transparent 95%)', pointerEvents: 'none' }} />
+
+            {/* Mini browser/app nav */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 16px', borderBottom: '1px solid var(--color-white-0.05)',
+              background: 'var(--color-bg-nav-0.8)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '22px', height: '22px', background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-dark))', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <TrendingUp size={11} color="var(--color-text-inverted)" />
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-main)' }}>CapitalUp</span>
+              </div>
+              <div style={{ display: 'flex', gap: '20px' }}>
+                {['Overview', 'Portfolio', 'Markets'].map((item, i) =>
+                  <span key={item} style={{ fontSize: '11px', color: i === 0 ? 'var(--color-accent)' : 'var(--color-text-muted)', fontWeight: i === 0 ? 500 : 400 }}>{item}</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['var(--color-error-0.7)', 'rgba(245,185,66,0.7)', 'var(--color-success-0.7)'].map((c, i) =>
+                  <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: c }} />
+                )}
+              </div>
+            </div>
+
+            {/* Portfolio header */}
+            <div style={{ padding: '18px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '5px' }}>Total Portfolio Value</div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '26px', fontWeight: 500, color: 'var(--color-text-main)', letterSpacing: '-0.5px', marginBottom: '5px' }}>$2,847,392.50</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--color-success-0.1)', border: '1px solid var(--color-success-0.2)', borderRadius: '5px', padding: '3px 8px' }}>
+                    <ArrowUpRight size={11} color="var(--color-success)" />
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: 'var(--color-success)', fontWeight: 500 }}>+$24,839.20 · +0.88%</span>
+                  </div>
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-dim)' }}>today</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div className="tx-live-dot" style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--color-success)', flexShrink: 0 }} />
+                <span style={{ fontSize: '10px', color: 'var(--color-success)', fontWeight: 500 }}>Live</span>
+              </div>
+            </div>
+
+            {/* Area chart */}
+            <div style={{ height: '110px', paddingBottom: '4px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={HERO_CHART} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="hg1_modal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="v" stroke="var(--color-accent)" strokeWidth={1.8} fill="url(#hg1_modal)" dot={false}
+                    activeDot={{ r: 3, fill: 'var(--color-accent)', strokeWidth: 0 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'var(--color-white-0.05)' }} />
+
+            {/* Two-column bottom */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', borderTop: 0 }}>
+              {/* Positions */}
+              <div style={{ padding: '14px 16px 16px', borderRight: '1px solid var(--color-white-0.05)' }}>
+                <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Top Positions</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {HERO_POSITIONS.map((p) =>
+                    <div key={p.ticker} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'var(--color-white-0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: 'var(--color-text-muted)', flexShrink: 0 }}>{p.ticker.slice(0, 2)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-main)' }}>{p.ticker}</span>
+                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '9px', color: p.up ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>{p.pct}</span>
+                        </div>
+                        <div style={{ height: '3px', background: 'var(--color-white-0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{ width: p.barW, height: '100%', background: p.up ? 'var(--color-accent)' : 'var(--color-error)', borderRadius: '2px', transition: 'width 1s ease' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Allocation */}
+              <div style={{ padding: '14px 16px 16px' }}>
+                <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Allocation</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  {ALLOCATION.map((a) =>
+                    <div key={a.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '2px', background: a.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', flex: 1 }}>{a.label}</span>
+                      <div style={{ width: '40px', height: '3px', background: 'var(--color-white-0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ width: `${a.pct}%`, height: '100%', background: a.color, borderRadius: '2px' }} />
+                      </div>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: 'var(--color-text-sub)', width: '22px', textAlign: 'right' }}>{a.pct}%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div style={{
+          background: 'var(--color-bg-dark)',
+          padding: '18px 24px',
+          borderTop: '1px solid var(--color-white-0.06)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          flexWrap: 'wrap'
+        }}>
+          <span style={{ fontSize: '12.5px', color: 'var(--color-text-muted)', fontWeight: 450 }}>
+            This is a mock dashboard preview. Register to track and build your actual portfolio.
+          </span>
+          <button 
+            onClick={() => {
+              onClose();
+              onRegister();
+            }}
+            style={{
+              background: 'var(--color-accent)',
+              border: 'none',
+              borderRadius: '8px',
+              color: 'var(--color-text-inverted)',
+              fontWeight: 600,
+              fontSize: '13px',
+              padding: '10px 20px',
+              cursor: 'pointer',
+              transition: 'all 0.22s',
+              boxShadow: '0 4px 14px var(--color-accent-0.3)'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#3D7BF0'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.transform = 'none'; }}
+          >
+            Get Started
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── MAIN ───────────────────────────────────────────────────────────── */
 export function Landing({ onNavigate }) {
   const [bottomTickerVisible, setBottomTickerVisible] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   
+  const showPreview = () => setIsPreviewOpen(true);
+  const closePreview = () => setIsPreviewOpen(false);
+
   return (
     <div style={{ fontFamily: 'DM Sans, system-ui, sans-serif', background: 'var(--color-bg-base)', color: 'var(--color-text-main)', overflowX: 'hidden', paddingBottom: bottomTickerVisible ? '70px' : '0' }}>
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS }} />
       <MarketTicker />
       <Nav onNavigate={onNavigate} />
-      <Hero onNavigate={onNavigate} />
+      <Hero onNavigate={onNavigate} onShowPreview={showPreview} />
       <StatsBar />
       <FeaturesSection />
-      <PlatformPreview onNavigate={onNavigate} />
+      <PlatformPreview onShowPreview={showPreview} />
       <TestimonialsSection />
       <CTASection onNavigate={onNavigate} />
       <Footer onNavigate={onNavigate} />
       <BottomTicker isVisible={bottomTickerVisible} onToggle={() => setBottomTickerVisible(!bottomTickerVisible)} />
+      
+      <PreviewModal isOpen={isPreviewOpen} onClose={closePreview} onRegister={() => onNavigate('register')} />
     </div>
   );
 }

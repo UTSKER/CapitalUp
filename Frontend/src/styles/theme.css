@@ -117,8 +117,10 @@
   --color-bg-panel-0.95: rgba(var(--color-bg-panel-rgb), 0.95);
   --color-bg-panel-0.96: rgba(var(--color-bg-panel-rgb), 0.96);
   --color-bg-panel-0.97: rgba(var(--color-bg-panel-rgb), 0.97);
+  --color-bg-panel-0.98: rgba(var(--color-bg-panel-rgb), 0.98);
 
   --color-bg-nav-0.6: rgba(var(--color-bg-nav-rgb), 0.6);
+  --color-bg-nav-0.8: rgba(var(--color-bg-nav-rgb), 0.8);
   --color-bg-nav-0.9: rgba(var(--color-bg-nav-rgb), 0.9);
   --color-bg-nav-0.92: rgba(var(--color-bg-nav-rgb), 0.92);
 
@@ -135,6 +137,7 @@
 
   --color-error-0.1: rgba(var(--color-error-rgb), 0.1);
   --color-error-0.2: rgba(var(--color-error-rgb), 0.2);
+  --color-error-0.7: rgba(var(--color-error-rgb), 0.7);
 }
 
 /* Theme Default (Fallback Dark) */
@@ -142,7 +145,6 @@
   /* Inherits root values */
 }
 
-/* Theme Light (Greyish White) */
 .theme-light {
   --background: #EAECEE;
   --foreground: #1A1D20;
@@ -209,6 +211,9 @@
   --color-bg-panel-0.95: #FFFFFF;
   --color-bg-panel-0.96: #FFFFFF;
   --color-bg-panel-0.97: #FFFFFF;
+  --color-bg-panel-0.98: #FFFFFF;
+  --color-bg-nav-0.8: #EAECEE;
+  --color-error-0.7: rgba(var(--color-error-rgb), 0.7);
 }
 
 /* Theme Hacker (Cyber Green) */

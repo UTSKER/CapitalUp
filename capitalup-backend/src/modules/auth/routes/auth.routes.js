@@ -3,7 +3,8 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  register,login,refresh,logout,sendOtp,verifyOtp
+  register, login, refresh, logout, sendOtp, verifyOtp,
+  sendMobileOtp, verifyMobileOtp, changePassword, resetPassword
 } = require("../controllers/auth.controller");
 
 const authenticate = require("../../../middlewares/auth.middleware");
@@ -17,6 +18,10 @@ const {
   sendOTPSchema,
   resendOTPSchema,
   verifyOTPSchema,
+  sendMobileOTPSchema,
+  verifyMobileOTPSchema,
+  changePasswordSchema,
+  resetPasswordSchema,
 } = require("../validators/auth.validator");
 
 router.post(
@@ -30,7 +35,7 @@ router.post(
   "/login",
   validate(loginSchema),
   login
-);  
+);
 
 router.post(
   "/send-otp",
@@ -62,6 +67,34 @@ router.post(
   "/logout",
   authenticate,
   logout
+);
+
+router.post(
+  "/send-mobile-otp",
+  validate(sendMobileOTPSchema),
+  validate.rateLimitOTP("send"),
+  sendMobileOtp
+);
+
+router.post(
+  "/verify-mobile-otp",
+  validate(verifyMobileOTPSchema),
+  validate.rateLimitOTP("verify"),
+  verifyMobileOtp
+);
+
+router.post(
+  "/change-password",
+  authenticate,
+  validate(changePasswordSchema),
+  changePassword
+);
+
+router.post(
+  "/reset-password",
+  validate(resetPasswordSchema),
+  validate.rateLimitOTP("verify"),
+  resetPassword
 );
 
 module.exports = router;

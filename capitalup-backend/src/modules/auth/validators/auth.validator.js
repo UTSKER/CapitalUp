@@ -13,13 +13,6 @@ const registerSchema = z.object({
     .email("Invalid email format")
     .toLowerCase(),
 
-  mobile_number: z
-    .string()
-    .regex(
-      /^[0-9]{10}$/,
-      "Mobile number must contain exactly 10 digits"
-    ),
-
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -86,6 +79,7 @@ const sendOTPSchema = z.object({
     .trim()
     .email("Invalid email format")
     .toLowerCase(),
+  forceSend: z.boolean().optional(),
 });
 
 const resendOTPSchema = sendOTPSchema;
@@ -103,10 +97,101 @@ const verifyOTPSchema = z.object({
     .regex(/^\d+$/, "OTP must be 6 digits"),
 });
 
+const sendMobileOTPSchema = z.object({
+  mobile_number: z
+    .string()
+    .regex(/^[0-9]{10}$/, "Mobile number must contain exactly 10 digits")
+    .optional(),
+});
+
+const verifyMobileOTPSchema = z.object({
+  mobile_number: z
+    .string()
+    .regex(/^[0-9]{10}$/, "Mobile number must contain exactly 10 digits")
+    .optional(),
+  otp: z
+    .string()
+    .trim()
+    .min(4, "OTP must be at least 4 digits")
+    .max(10, "OTP cannot exceed 10 digits")
+    .regex(/^\d+$/, "OTP must contain only digits"),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .refine(
+      (val) => /[A-Z]/.test(val),
+      {
+        message:
+          "Password must contain at least one uppercase letter",
+      }
+    )
+    .refine(
+      (val) => /\d/.test(val),
+      {
+        message:
+          "Password must contain at least one digit",
+      }
+    )
+    .refine(
+      (val) =>
+        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(val),
+      {
+        message:
+          "Password must contain at least one special character",
+      }
+    ),
+});
+
+const resetPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Invalid email format")
+    .toLowerCase(),
+  otp: z
+    .string()
+    .trim()
+    .length(6, "OTP must be 6 digits")
+    .regex(/^\d+$/, "OTP must be 6 digits"),
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .refine(
+      (val) => /[A-Z]/.test(val),
+      {
+        message:
+          "Password must contain at least one uppercase letter",
+      }
+    )
+    .refine(
+      (val) => /\d/.test(val),
+      {
+        message:
+          "Password must contain at least one digit",
+      }
+    )
+    .refine(
+      (val) =>
+        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(val),
+      {
+        message:
+          "Password must contain at least one special character",
+      }
+    ),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   sendOTPSchema,
   resendOTPSchema,
   verifyOTPSchema,
+  sendMobileOTPSchema,
+  verifyMobileOTPSchema,
+  changePasswordSchema,
+  resetPasswordSchema,
 };

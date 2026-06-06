@@ -88,10 +88,56 @@ async function markEmailVerified(email) {
   return result.rows[0];
 }
 
+async function findUserById(id) {
+  const result = await pool.query(
+    `
+      SELECT *
+      FROM users
+      WHERE id = $1
+    `,
+    [id]
+  );
+
+  return result.rows[0];
+}
+
+async function markMobileVerified(id) {
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET is_mobile_verified = TRUE,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING *;
+    `,
+    [id]
+  );
+
+  return result.rows[0];
+}
+
+async function updateUserPassword(id, passwordHash) {
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET password_hash = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *;
+    `,
+    [passwordHash, id]
+  );
+
+  return result.rows[0];
+}
+
 module.exports = {
   findUserByEmail,
   findUserByMobile,
   findUserByIdentifier,
   createUser,
   markEmailVerified,
+  findUserById,
+  markMobileVerified,
+  updateUserPassword,
 };

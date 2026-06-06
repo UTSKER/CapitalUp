@@ -2,6 +2,10 @@ const {
   getProfileByUserId,
   updateProfile,
 } = require("../repositories/profile.repository");
+const {
+  findUserByMobile,
+} = require("../../auth/repositories/auth.repository");
+const pool = require("../../../config/postgre");
 
 async function getUserProfile(userId) {
   const profile =
@@ -23,6 +27,41 @@ async function updateUserProfile(
 
   if (!existingProfile) {
     throw new Error("User not found");
+  }
+
+  // Check if users table needs updates (full_name, mobile_number)
+  const userUpdates = [];
+  const userValues = [];
+  let paramIndex = 1;
+
+  if (incomingData.full_name && incomingData.full_name !== existingProfile.full_name) {
+    userUpdates.push(`full_name = $${paramIndex++}`);
+    userValues.push(incomingData.full_name);
+  }
+
+  if (incomingData.mobile_number && incomingData.mobile_number !== existingProfile.mobile_number) {
+    // Check if new mobile number is already taken
+    const existingMobile = await findUserByMobile(incomingData.mobile_number);
+    if (existingMobile && existingMobile.id !== userId) {
+      throw new Error("Mobile number is already registered to another account");
+    }
+    userUpdates.push(`mobile_number = $${paramIndex++}`);
+    userUpdates.push(`is_mobile_verified = FALSE`);
+    userValues.push(incomingData.mobile_number);
+  }
+
+  if (userUpdates.length > 0) {
+    userValues.push(userId);
+    const setClause = userUpdates.join(", ");
+    await pool.query(
+      `
+        UPDATE users
+        SET ${setClause},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $${paramIndex}
+      `,
+      userValues
+    );
   }
 
   const mergedProfile = {
@@ -59,13 +98,12 @@ async function updateUserProfile(
       existingProfile.pincode,
   };
 
-  const updatedProfile =
-    await updateProfile(
-      userId,
-      mergedProfile
-    );
+  await updateProfile(
+    userId,
+    mergedProfile
+  );
 
-  return updatedProfile;
+  return getProfileByUserId(userId);
 }
 
 module.exports = {

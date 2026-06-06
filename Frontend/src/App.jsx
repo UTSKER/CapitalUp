@@ -4,7 +4,19 @@ import { AuthScreen } from './features/auth/AuthScreen';
 import { Dashboard } from './features/dashboard/Dashboard';
 
 export default function App() {
-  const [view, setView] = useState('landing');
+  const [view, setView] = useState(() => {
+    const token = localStorage.getItem('capitalup-access-token');
+    const expiry = localStorage.getItem('capitalup-session-expiry');
+    if (token && expiry && Date.now() < Number(expiry)) {
+      return 'dashboard';
+    }
+    // Clean up expired or invalid session keys
+    localStorage.removeItem('capitalup-access-token');
+    localStorage.removeItem('capitalup-refresh-token');
+    localStorage.removeItem('capitalup-user');
+    localStorage.removeItem('capitalup-session-expiry');
+    return 'landing';
+  });
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('capitalup-theme') || 'default';
   });

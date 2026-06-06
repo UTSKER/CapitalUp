@@ -1,5 +1,13 @@
 function validate(schema) {
+  console.log("validate initialized with schema:", schema ? (schema.constructor ? schema.constructor.name : typeof schema) : "undefined");
   return (req, res, next) => {
+    if (!schema) {
+      console.error("validate middleware executed, but schema is undefined! req.path:", req.path);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error: validator schema is undefined"
+      });
+    }
     const result = schema.safeParse(req.body);
 
     if (!result.success) {

@@ -14,6 +14,10 @@ const navItems = [
 ];
 
 export function Sidebar({ activeTab, onTabChange, onNavigate }) {
+  const user = JSON.parse(localStorage.getItem('capitalup-user') || '{}');
+  const fullName = user.full_name || 'James Dornan';
+  const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'JD';
+
   return (
     <aside
       style={{
@@ -246,15 +250,33 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
               color: 'var(--color-text-inverted)',
               flexShrink: 0
             }}>
-            JD
+            {initials}
           </div>
           <div style={{ flex: 1, textAlign: 'left', overflow: 'hidden' }}>
             <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              James Dornan
+              {fullName}
             </div>
             <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Premium Plan</div>
           </div>
-          <LogOut size={13} color="var(--color-text-muted)" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              localStorage.removeItem('capitalup-access-token');
+              localStorage.removeItem('capitalup-refresh-token');
+              localStorage.removeItem('capitalup-user');
+              localStorage.removeItem('capitalup-session-expiry');
+              onNavigate('landing');
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+            <LogOut size={13} color="var(--color-text-muted)" />
+          </button>
         </button>
       </div>
     </aside>

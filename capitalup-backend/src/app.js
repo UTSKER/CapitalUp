@@ -23,4 +23,12 @@ app.use("/auth", authRoutes);
 app.use("/profile", profileRoutes);
 
 
+// KYC Routes
+const kycRoutes = require(
+  "./modules/kyc/routes/kyc.routes"
+);
+
+app.use("/kyc", kycRoutes);
+
+
 module.exports = app;

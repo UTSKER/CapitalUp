@@ -9,6 +9,7 @@ async function getProfileByUserId(userId) {
       u.mobile_number,
       u.is_email_verified,
       u.is_mobile_verified,
+      u.is_name_locked,
 
       p.date_of_birth,
       p.gender,

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
 
     email VARCHAR(255) UNIQUE NOT NULL,
 
-    mobile_number VARCHAR(15) UNIQUE NOT NULL,
+    mobile_number VARCHAR(15) UNIQUE,
 
     password_hash TEXT NOT NULL,
 
@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
     is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
 
     is_mobile_verified BOOLEAN NOT NULL DEFAULT FALSE,
+
+    is_name_locked BOOLEAN NOT NULL DEFAULT FALSE,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

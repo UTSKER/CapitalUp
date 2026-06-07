@@ -131,6 +131,25 @@ async function updateUserPassword(id, passwordHash) {
   return result.rows[0];
 }
 
+async function updateUserNameAndLock(
+  userId,
+  fullName
+) {
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET
+        full_name = $1,
+        is_name_locked = TRUE
+      WHERE id = $2
+      RETURNING *;
+    `,
+    [fullName, userId]
+  );
+
+  return result.rows[0];
+}
+
 module.exports = {
   findUserByEmail,
   findUserByMobile,
@@ -140,4 +159,5 @@ module.exports = {
   findUserById,
   markMobileVerified,
   updateUserPassword,
+  updateUserNameAndLock,
 };

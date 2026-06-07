@@ -34,10 +34,23 @@ async function updateUserProfile(
   const userValues = [];
   let paramIndex = 1;
 
-  if (incomingData.full_name && incomingData.full_name !== existingProfile.full_name) {
-    userUpdates.push(`full_name = $${paramIndex++}`);
-    userValues.push(incomingData.full_name);
+  if (
+  incomingData.full_name &&
+  incomingData.full_name !== existingProfile.full_name
+) {
+  if (existingProfile.is_name_locked) {
+    throw new Error(
+      "Name cannot be modified after KYC approval"
+    );
   }
+
+  userUpdates.push(
+    `full_name = $${paramIndex++}`
+  );
+  userValues.push(
+    incomingData.full_name
+  );
+}
 
   if (incomingData.mobile_number && incomingData.mobile_number !== existingProfile.mobile_number) {
     // Check if new mobile number is already taken

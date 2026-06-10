@@ -42,12 +42,17 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
   const [pwData, setPwData] = useState({
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    otp: ''
   });
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [forgotPwMessage, setForgotPwMessage] = useState('');
+  const [isForgotMode, setIsForgotMode] = useState(false);
+  const [forgotPwLoading, setForgotPwLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -64,24 +69,51 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
     try {
       const token = localStorage.getItem('capitalup-access-token');
       const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-      const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          currentPassword: pwData.currentPassword,
-          newPassword: pwData.newPassword
-        })
-      });
+      
+      let res;
+      let payload;
 
-      const payload = await res.json();
-      if (res.ok && payload.success) {
-        setPwSuccess('Password updated successfully!');
-        setPwData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      if (isForgotMode) {
+        // Use the /auth/reset-password endpoint when in forgot mode
+        res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            otp: pwData.otp,
+            newPassword: pwData.newPassword
+          })
+        });
+        payload = await res.json();
+        if (res.ok && payload.success) {
+          setPwSuccess('Password reset successfully using OTP!');
+          setIsForgotMode(false);
+          setPwData({ currentPassword: '', newPassword: '', confirmPassword: '', otp: '' });
+        } else {
+          setPwError(payload.message || 'Failed to reset password. Please check the OTP.');
+        }
       } else {
-        setPwError(payload.message || 'Failed to update password');
+        // Normal password change requiring current password
+        res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            currentPassword: pwData.currentPassword,
+            newPassword: pwData.newPassword
+          })
+        });
+        payload = await res.json();
+        if (res.ok && payload.success) {
+          setPwSuccess('Password updated successfully!');
+          setPwData({ currentPassword: '', newPassword: '', confirmPassword: '', otp: '' });
+        } else {
+          setPwError(payload.message || 'Failed to update password');
+        }
       }
     } catch (err) {
       setPwError('Failed to change password.');
@@ -90,10 +122,41 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
     }
   };
 
-  const handleForgotClick = () => {
-    setForgotPwMessage('A password reset OTP/link has been sent to your email.');
+  const handleForgotClick = async () => {
     setPwError('');
     setPwSuccess('');
+    setForgotPwMessage('');
+
+    if (!formData.email) {
+      setPwError('User email not found. Please log in again.');
+      return;
+    }
+
+    setForgotPwLoading(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          forceSend: true
+        })
+      });
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        setIsForgotMode(true);
+        setForgotPwMessage('A verification OTP has been sent to your email.');
+      } else {
+        setPwError(payload.message || 'Failed to send verification code.');
+      }
+    } catch (err) {
+      setPwError('Failed to send verification code.');
+    } finally {
+      setForgotPwLoading(false);
+    }
   };
 
   const fetchProfile = async () => {
@@ -879,85 +942,171 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
 
             <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Current Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Enter current password"
-                  value={pwData.currentPassword}
-                  onChange={(e) => setPwData({ ...pwData, currentPassword: e.target.value })}
-                  style={{
-                    width: '100%',
-                    background: 'var(--color-white-0.04)',
-                    border: '1px solid var(--color-white-0.08)',
-                    borderRadius: '8px',
-                    padding: '10px 14px',
-                    color: 'var(--color-text-main)',
-                    fontSize: '13px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }} />
-                
-                {/* Forgot password option right below last password input */}
-                <div style={{ marginTop: '6px', textAlign: 'left' }}>
-                  <button
-                    type="button"
-                    onClick={handleForgotClick}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--color-accent)',
-                      fontSize: '11px',
-                      fontWeight: 500,
-                      fontFamily: 'DM Sans, sans-serif',
-                      padding: 0
-                    }}>
-                    Forgot your current password?
-                  </button>
-                </div>
+                {isForgotMode ? (
+                  <>
+                    <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Verification OTP</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Enter 6-digit OTP"
+                      value={pwData.otp}
+                      onChange={(e) => setPwData({ ...pwData, otp: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-white-0.04)',
+                        border: '1px solid var(--color-white-0.08)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        color: 'var(--color-text-main)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }} />
+                    <div style={{ marginTop: '6px', textAlign: 'left' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotMode(false);
+                          setPwError('');
+                          setPwSuccess('');
+                          setForgotPwMessage('');
+                          setPwData({ ...pwData, otp: '', currentPassword: '' });
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--color-accent)',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          fontFamily: 'DM Sans, sans-serif',
+                          padding: 0
+                        }}>
+                        Back to regular password update
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Current Password</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter current password"
+                      value={pwData.currentPassword}
+                      onChange={(e) => setPwData({ ...pwData, currentPassword: e.target.value })}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-white-0.04)',
+                        border: '1px solid var(--color-white-0.08)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        color: 'var(--color-text-main)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }} />
+                    <div style={{ marginTop: '6px', textAlign: 'left' }}>
+                      <button
+                        type="button"
+                        onClick={handleForgotClick}
+                        disabled={forgotPwLoading}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--color-accent)',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          fontFamily: 'DM Sans, sans-serif',
+                          padding: 0,
+                          opacity: forgotPwLoading ? 0.7 : 1
+                        }}>
+                        {forgotPwLoading ? 'Sending OTP...' : 'Forgot your current password?'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="max-md:grid-cols-1">
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>New Password</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Minimum 8 characters"
-                    value={pwData.newPassword}
-                    onChange={(e) => setPwData({ ...pwData, newPassword: e.target.value })}
-                    style={{
-                      width: '100%',
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      color: 'var(--color-text-main)',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Minimum 8 characters"
+                      value={pwData.newPassword}
+                      onChange={(e) => setPwData({ ...pwData, newPassword: e.target.value })}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-white-0.04)',
+                        border: '1px solid var(--color-white-0.08)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        paddingRight: '40px',
+                        color: 'var(--color-text-main)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }} />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--color-text-muted)',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Confirm New Password</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Repeat new password"
-                    value={pwData.confirmPassword}
-                    onChange={(e) => setPwData({ ...pwData, confirmPassword: e.target.value })}
-                    style={{
-                      width: '100%',
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      color: 'var(--color-text-main)',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Repeat new password"
+                      value={pwData.confirmPassword}
+                      onChange={(e) => setPwData({ ...pwData, confirmPassword: e.target.value })}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-white-0.04)',
+                        border: '1px solid var(--color-white-0.08)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        paddingRight: '40px',
+                        color: 'var(--color-text-main)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }} />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--color-text-muted)',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

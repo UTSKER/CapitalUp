@@ -489,3 +489,13 @@
     transform: translateX(100%);
   }
 }
+
+/* Global WebKit/Chrome Autofill styling override to prevent white/blue backgrounds */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  transition: background-color 5000s ease-in-out 0s;
+  -webkit-text-fill-color: var(--color-text-main) !important;
+  caret-color: var(--color-text-main) !important;
+}

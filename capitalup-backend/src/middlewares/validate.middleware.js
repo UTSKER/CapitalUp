@@ -86,8 +86,9 @@ function rateLimitOTP(action) {
 
       const key = `${config.keyPrefix}:${email}`;
       const count = await redisClient.incr(key);
+      const ttl = await redisClient.ttl(key);
 
-      if (count === 1) {
+      if (count === 1 || ttl < 0) {
         await redisClient.expire(
           key,
           config.windowSeconds

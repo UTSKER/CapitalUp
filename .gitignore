@@ -1,14 +1,29 @@
-# Dependencies (Root & Workspace Packages)
+# Dependencies
 node_modules/
 **/node_modules/
 .pnpm-store/
 jspm_packages/
+.npm/
+.yarn-integrity/
 
-# Production builds
+# Caches
+.cache/
+.parcel-cache/
+.eslintcache/
+.vite-inspect/
+.turbo/
+
+# Production builds and outputs
 dist/
 **/dist/
 build/
 **/build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+coverage/
+.nyc_output/
 
 # Environment files
 .env
@@ -16,11 +31,13 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.local
 **/.env
 **/.env.local
 **/.env.development.local
 **/.env.test.local
 **/.env.production.local
+**/.env.*.local
 
 # Logs
 npm-debug.log*
@@ -38,6 +55,7 @@ Thumbs.db
 *.suo
 *.ntvsca*
 *.njsproj
+*.sln
 *.sw?
 
 # Helper scripts

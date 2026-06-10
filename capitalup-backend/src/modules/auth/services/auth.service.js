@@ -55,6 +55,9 @@ function generateOTP() {
 }
 
 function createAccessToken(user) {
+  const expiry = process.env.JWT_EXPIRY
+    ? (isNaN(process.env.JWT_EXPIRY) ? process.env.JWT_EXPIRY : Number(process.env.JWT_EXPIRY))
+    : "7d";
   return jwt.sign(
     {
       userId: user.id,
@@ -63,7 +66,7 @@ function createAccessToken(user) {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: "15m",
+      expiresIn: expiry,
     }
   );
 }
@@ -335,13 +338,16 @@ async function refreshAccessToken(
     );
   }
 
+  const expiry = process.env.JWT_EXPIRY
+    ? (isNaN(process.env.JWT_EXPIRY) ? process.env.JWT_EXPIRY : Number(process.env.JWT_EXPIRY))
+    : "7d";
   const accessToken = jwt.sign(
     {
       userId: decoded.userId,
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: "15m",
+      expiresIn: expiry,
     }
   );
 

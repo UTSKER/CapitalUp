@@ -30,5 +30,15 @@ const kycRoutes = require(
 
 app.use("/kyc", kycRoutes);
 
+// Watchlist Routes
+const watchlistRoutes = require(
+  "./modules/watchlist/routes/watchlist.routes"
+);
+
+app.use(
+  "/watchlist",
+  watchlistRoutes
+);
+
 
 module.exports = app;

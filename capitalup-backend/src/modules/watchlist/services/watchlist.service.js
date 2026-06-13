@@ -7,6 +7,13 @@ const {
   "../repositories/watchlist.repository"
 );
 
+const {
+  addActiveSymbol,
+  getStockData,
+} = require(
+  "../../market-data/repositories/marketdata.repository"
+);
+
 async function addStock(
   userId,
   symbol
@@ -23,6 +30,8 @@ async function addStock(
     );
   }
 
+  await addActiveSymbol(symbol);
+
   return addStockToWatchlist(
     userId,
     symbol
@@ -32,8 +41,32 @@ async function addStock(
 async function getWatchlist(
   userId
 ) {
-  return getWatchlistByUserId(
-    userId
+  const watchlist =
+    await getWatchlistByUserId(
+      userId
+    );
+
+  return Promise.all(
+    watchlist.map(async (stock) => {
+      const marketData =
+        await getStockData(
+          stock.symbol
+        );
+
+      return {
+        ...stock,
+        price:
+          marketData?.price ?? null,
+        high:
+          marketData?.high ?? null,
+        low:
+          marketData?.low ?? null,
+        previousClose:
+          marketData?.previousClose ?? null,
+        lastUpdated:
+          marketData?.updatedAt ?? null,
+      };
+    })
   );
 }
 

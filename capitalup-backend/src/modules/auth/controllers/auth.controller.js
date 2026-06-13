@@ -9,6 +9,7 @@ const {
   verifyUserMobileOTP,
   changeUserPassword,
   resetUserPassword,
+  loginWithGoogle,
 } = require("../services/auth.service");
 
 
@@ -153,7 +154,9 @@ async function sendMobileOtp(req, res) {
       const OTP_EXPIRY_SECONDS = Number(process.env.OTP_EXPIRY_MINUTES || 10) * 60;
       await storeVerificationToken(mobile_number, otp, OTP_EXPIRY_SECONDS);
       const { sendMobileOTP } = require("../../../shared/services/sms.service");
-      await sendMobileOTP(mobile_number, otp);
+      sendMobileOTP(mobile_number, otp).catch((err) => {
+        console.warn("Failed to send mobile OTP:", err.message);
+      });
 
       return res.status(200).json({
         success: true,
@@ -321,6 +324,24 @@ async function resetPassword(req, res) {
   }
 }
 
+async function googleLogin(req, res) {
+  try {
+    const { idToken, accessToken } = req.body;
+    const result = await loginWithGoogle({ idToken, accessToken });
+
+    res.status(200).json({
+      success: true,
+      message: "Google login successful",
+      ...result,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   register,
   sendOtp,
@@ -332,4 +353,5 @@ module.exports = {
   verifyMobileOtp,
   changePassword,
   resetPassword,
+  googleLogin,
 };

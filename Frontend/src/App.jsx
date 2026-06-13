@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Landing } from './features/landing/Landing';
 import { AuthScreen } from './features/auth/AuthScreen';
 import { Dashboard } from './features/dashboard/Dashboard';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 export default function App() {
   const [view, setView] = useState(() => {
@@ -43,6 +44,7 @@ export default function App() {
   const navigate = (v) => setView(v);
 
   return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy_client_id'}>
     <div style={{ minHeight: '100vh', background: 'var(--color-bg-base)', color: 'var(--color-text-main)' }}>
       {/* MARKER-MAKE-KIT-INVOKED */}
       {view === 'landing' && (
@@ -82,5 +84,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </GoogleOAuthProvider>
   );
 }

@@ -4,7 +4,7 @@ const router = express.Router();
 
 const {
   register, login, refresh, logout, sendOtp, verifyOtp,
-  sendMobileOtp, verifyMobileOtp, changePassword, resetPassword
+  sendMobileOtp, verifyMobileOtp, changePassword, resetPassword, googleLogin
 } = require("../controllers/auth.controller");
 
 const authenticate = require("../../../middlewares/auth.middleware");
@@ -95,6 +95,11 @@ router.post(
   validate(resetPasswordSchema),
   validate.rateLimitOTP("verify"),
   resetPassword
+);
+
+router.post(
+  "/google",
+  googleLogin
 );
 
 module.exports = router;

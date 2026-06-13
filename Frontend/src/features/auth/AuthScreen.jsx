@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, ArrowRight, Shield, CheckCircle, TrendingUp } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 
 const AUTH_CSS = `
   @keyframes auth-float-a {
@@ -302,19 +303,19 @@ function SubmitBtn({ label, onClick, loading = false }) {
 }
 
 /* ─── GOOGLE BUTTON ─────────────────────────────────────────────── */
-function GoogleBtn() {
+function GoogleBtn({ onClick, loading }) {
   return (
-    <button
+    <button onClick={onClick} disabled={loading}
       style={{
         width: '100%', padding: '12px', background: 'var(--color-white-0.04)',
         border: '1px solid var(--color-white-0.09)', borderRadius: '9px',
         color: 'var(--color-text-main)', fontSize: '13px', fontWeight: 500,
         fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
-        transition: 'all 0.2s', marginBottom: '20px'
+        transition: 'all 0.2s', marginBottom: '20px', opacity: loading ? 0.7 : 1
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.07)'; e.currentTarget.style.borderColor = 'var(--color-white-0.14)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-white-0.04)'; e.currentTarget.style.borderColor = 'var(--color-white-0.09)'; }}>
+      onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.background = 'var(--color-white-0.07)'; e.currentTarget.style.borderColor = 'var(--color-white-0.14)'; } }}
+      onMouseLeave={(e) => { if (!loading) { e.currentTarget.style.background = 'var(--color-white-0.04)'; e.currentTarget.style.borderColor = 'var(--color-white-0.09)'; } }}>
       
       <svg width="15" height="15" viewBox="0 0 24 24">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -516,7 +517,27 @@ function LoginForm({ onNavigate, onVerificationNeeded }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showUnregisteredAlert, setShowUnregisteredAlert] = useState(false);
+
+  const loginWithGoogleAction = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setGoogleLoading(true);
+      setError('');
+      try {
+        const result = await authRequest('/google', {
+          accessToken: tokenResponse.access_token,
+        });
+        storeAuthSession(result);
+        onNavigate('dashboard');
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    onError: () => setError('Google Login Failed'),
+  });
 
   const handleLogin = async () => {
     setError('');
@@ -556,7 +577,7 @@ function LoginForm({ onNavigate, onVerificationNeeded }) {
         <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Sign in to your CapitalUp account to manage your portfolio.</p>
       </div>
 
-      <GoogleBtn />
+      <GoogleBtn onClick={() => loginWithGoogleAction()} loading={googleLoading} />
       <Divider />
 
       <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />
@@ -599,7 +620,27 @@ function RegisterForm({ onNavigate, onVerificationNeeded }) {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showAlreadyRegisteredAlert, setShowAlreadyRegisteredAlert] = useState(false);
+
+  const registerWithGoogleAction = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setGoogleLoading(true);
+      setError('');
+      try {
+        const result = await authRequest('/google', {
+          accessToken: tokenResponse.access_token,
+        });
+        storeAuthSession(result);
+        onNavigate('dashboard');
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    onError: () => setError('Google Registration Failed'),
+  });
 
   const handleRegister = async () => {
     setError('');
@@ -635,6 +676,9 @@ function RegisterForm({ onNavigate, onVerificationNeeded }) {
         <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2, marginBottom: '8px' }}>Create your account</h1>
         <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>Join 180,000+ investors building institutional-grade portfolios.</p>
       </div>
+
+      <GoogleBtn onClick={() => registerWithGoogleAction()} loading={googleLoading} />
+      <Divider />
 
       <InputField type="text" label="Full Name" placeholder="Your full name" icon={User} value={name} onChange={setName} />
       <InputField type="email" label="Email Address" placeholder="you@example.com" icon={Mail} value={email} onChange={setEmail} />

@@ -211,7 +211,7 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
           borderTop: '1px solid var(--color-white-0.05)'
         }}>
         
-        <button
+        <div
           onClick={() => onTabChange('profile')}
           style={{
             width: '100%',
@@ -277,7 +277,7 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
             }}>
             <LogOut size={13} color="var(--color-text-muted)" />
           </button>
-        </button>
+        </div>
       </div>
     </aside>
   );

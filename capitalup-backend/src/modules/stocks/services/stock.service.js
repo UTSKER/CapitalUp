@@ -4,32 +4,20 @@ const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
 });
 
+const {
+  searchStocks: searchStocksRepo,
+} = require(
+  "../repositories/stock.repository"
+);
 
 async function searchStocks(query) {
-  try {
-    const response =
-      await yahooFinance.search(query);
-
-    return response.quotes
-    .filter((stock) =>
-      stock.symbol &&
-      stock.symbol.endsWith(".NS")
-    )
-    .map((stock) => ({
-      symbol: stock.symbol,
-      name:
-        stock.longname ||
-        stock.shortname ||
-        stock.symbol,
-      type:
-        stock.quoteType ||
-        stock.typeDisp,
-    }));
-  } catch (error) {
-    throw new Error(
-      `Failed to search stocks: ${error.message}`
-    );
+  if (!query?.trim()) {
+    return [];
   }
+
+  return await searchStocksRepo(
+    query
+  );
 }
 
 async function getStockPrice(symbol) {
@@ -48,10 +36,14 @@ async function getStockPrice(symbol) {
 
     return {
       symbol,
-      price: quote.regularMarketPrice,
-      high: quote.regularMarketDayHigh,
-      low: quote.regularMarketDayLow,
-      open: quote.regularMarketOpen,
+      price:
+        quote.regularMarketPrice,
+      high:
+        quote.regularMarketDayHigh,
+      low:
+        quote.regularMarketDayLow,
+      open:
+        quote.regularMarketOpen,
       previousClose:
         quote.regularMarketPreviousClose,
     };

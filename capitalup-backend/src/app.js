@@ -40,5 +40,12 @@ app.use(
   watchlistRoutes
 );
 
+// search and quote routes
+const stockRoutes = require(
+  "./modules/stocks/routes/stock.routes"
+);
+
+app.use("/stocks", stockRoutes);
+
 
 module.exports = app;

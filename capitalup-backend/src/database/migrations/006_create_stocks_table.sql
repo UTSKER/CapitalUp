@@ -1,0 +1,19 @@
+CREATE TABLE stocks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    symbol VARCHAR(50) UNIQUE NOT NULL,
+
+    company_name VARCHAR(255) NOT NULL,
+
+    exchange VARCHAR(20) NOT NULL DEFAULT 'NSE',
+
+    instrument_type VARCHAR(20) NOT NULL DEFAULT 'EQUITY',
+
+    sector VARCHAR(100),
+
+    is_active BOOLEAN DEFAULT TRUE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

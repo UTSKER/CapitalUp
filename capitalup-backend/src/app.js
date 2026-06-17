@@ -40,5 +40,26 @@ app.use(
   watchlistRoutes
 );
 
+// search and quote routes
+const stockRoutes = require(
+  "./modules/stocks/routes/stock.routes"
+);
+
+app.use("/stocks", stockRoutes);
+
+// Portfolio Routes
+const portfolioRoutes = require(
+  "./modules/portfolio/routes/portfolio.routes"
+);
+
+app.use("/portfolio", portfolioRoutes);
+
+// Order Routes
+const orderRoutes = require(
+  "./modules/orders/routes/order.routes.js"
+);
+
+app.use("/orders",orderRoutes);
+
 
 module.exports = app;

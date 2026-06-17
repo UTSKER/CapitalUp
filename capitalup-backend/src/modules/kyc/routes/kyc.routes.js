@@ -26,6 +26,7 @@ const {
 const {
   getKycDetails,
   submitKycDetails,
+  reviewKycDetails,
 } = require("../controllers/kyc.controller");
 
 const router =
@@ -44,6 +45,12 @@ router.post(
   submitKycDetails
 );
 
+router.patch(
+  "/status",
+  authenticate,
+  reviewKycDetails
+);
+
 router.post(
   "/documents",
   authenticate,
@@ -59,6 +66,10 @@ router.post(
     },
     {
       name: "aadhaar_back",
+      maxCount: 1,
+    },
+    {
+      name: "signature_document",
       maxCount: 1,
     },
   ]),

@@ -62,7 +62,7 @@ function createAccessToken(user) {
     : "7d";
   return jwt.sign(
     {
-      userId: user.id,
+      userId: user.user_id,
       email: user.email,
       role: user.role,
     },
@@ -87,9 +87,9 @@ function createRefreshToken(userId) {
 
 async function createAuthTokens(user) {
   const accessToken = createAccessToken(user);
-  const refreshToken = createRefreshToken(user.id);
+  const refreshToken = createRefreshToken(user.user_id);
 
-  await storeRefreshToken(user.id, refreshToken);
+  await storeRefreshToken(user.user_id, refreshToken);
 
   return {
     accessToken,
@@ -467,7 +467,7 @@ async function resetUserPassword({ email, otp, newPassword }) {
   await redisClient.del(`failed_otp:${email}`);
 
   const newHash = await bcrypt.hash(newPassword, 12);
-  await updateUserPassword(user.id, newHash);
+  await updateUserPassword(user.user_id, newHash);
 
   if (!user.is_email_verified) {
     await markEmailVerified(email);

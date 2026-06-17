@@ -13,21 +13,18 @@ async function uploadKycDocuments(
     const userId =
       req.user.userId;
 
+    const panDocumentUrl = req.files?.pan_document?.[0]?.path || null;
+    const aadhaarFrontUrl = req.files?.aadhaar_front?.[0]?.path || null;
+    const aadhaarBackUrl = req.files?.aadhaar_back?.[0]?.path || null;
+    const signatureDocumentUrl = req.files?.signature_document?.[0]?.path || null;
+
     const documents =
       await uploadDocuments({
         userId,
-
-        panDocumentUrl:
-          req.files.pan_document[0]
-            .path,
-
-        aadhaarFrontUrl:
-          req.files
-            .aadhaar_front[0].path,
-
-        aadhaarBackUrl:
-          req.files
-            .aadhaar_back[0].path,
+        panDocumentUrl,
+        aadhaarFrontUrl,
+        aadhaarBackUrl,
+        signatureDocumentUrl,
       });
 
     return res.status(201).json({

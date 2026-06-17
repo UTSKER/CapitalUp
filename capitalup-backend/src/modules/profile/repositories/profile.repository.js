@@ -3,7 +3,7 @@ const pool = require("../../../config/postgre");
 async function getProfileByUserId(userId) {
   const query = `
     SELECT
-      u.id,
+      u.user_id,
       u.full_name,
       u.email,
       u.mobile_number,
@@ -11,10 +11,12 @@ async function getProfileByUserId(userId) {
       u.is_mobile_verified,
       u.is_name_locked,
 
-      p.date_of_birth,
+      p.dob,
       p.gender,
       p.occupation,
-      p.annual_income,
+      p.income,
+      p.father_name,
+      p.mother_name,
       p.address,
       p.city,
       p.state,
@@ -22,10 +24,10 @@ async function getProfileByUserId(userId) {
 
     FROM users u
 
-    LEFT JOIN profiles p
-      ON u.id = p.user_id
+    LEFT JOIN user_profile p
+      ON u.user_id = p.user_id
 
-    WHERE u.id = $1
+    WHERE u.user_id = $1
   `;
 
   const result = await pool.query(
@@ -41,10 +43,13 @@ async function updateProfile(
   profileData
 ) {
   const {
-    date_of_birth,
+    full_name,
+    father_name,
+    mother_name,
+    dob,
     gender,
     occupation,
-    annual_income,
+    income,
     address,
     city,
     state,
@@ -52,28 +57,34 @@ async function updateProfile(
   } = profileData;
 
   const query = `
-    INSERT INTO profiles (
+    INSERT INTO user_profile (
       user_id,
-      date_of_birth,
+      full_name,
+      father_name,
+      mother_name,
+      dob,
       gender,
       occupation,
-      annual_income,
+      income,
       address,
       city,
       state,
       pincode
     )
     VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
     )
 
     ON CONFLICT (user_id)
 
     DO UPDATE SET
-      date_of_birth = EXCLUDED.date_of_birth,
+      full_name = EXCLUDED.full_name,
+      father_name = EXCLUDED.father_name,
+      mother_name = EXCLUDED.mother_name,
+      dob = EXCLUDED.dob,
       gender = EXCLUDED.gender,
       occupation = EXCLUDED.occupation,
-      annual_income = EXCLUDED.annual_income,
+      income = EXCLUDED.income,
       address = EXCLUDED.address,
       city = EXCLUDED.city,
       state = EXCLUDED.state,
@@ -87,10 +98,13 @@ async function updateProfile(
     query,
     [
       userId,
-      date_of_birth,
+      full_name,
+      father_name,
+      mother_name,
+      dob,
       gender,
       occupation,
-      annual_income,
+      income,
       address,
       city,
       state,

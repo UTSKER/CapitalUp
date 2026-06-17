@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, Phone, Shield, Key, Check, Copy, Moon, Sun, Terminal, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { User, Mail, Phone, Shield, Key, Check, Copy, Moon, Sun, Terminal, Eye, EyeOff, CheckCircle, Clock } from 'lucide-react';
 
 export function ProfileSettings({ currentTheme, onChangeTheme }) {
   const [formData, setFormData] = useState(() => {
@@ -25,6 +25,20 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [savedStatus, setSavedStatus] = useState(false);
+
+  const [kycStatus, setKycStatus] = useState(() => localStorage.getItem('capitalup-kyc-status') || 'NOT_STARTED');
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setKycStatus(localStorage.getItem('capitalup-kyc-status') || 'NOT_STARTED');
+    };
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(handleStorageChange, 1000);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -432,6 +446,175 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           Account Profile & Settings
         </h1>
       </div>
+
+      {/* KYC Status Banner */}
+      {kycStatus === 'NOT_STARTED' && (
+        <div style={{
+          background: 'var(--color-accent-0.06)',
+          border: '1px solid var(--color-white-0.08)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          flexWrap: 'wrap',
+          boxSizing: 'border-box'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px', color: 'var(--color-text-main)' }}>
+              <Shield size={16} color="var(--color-accent)" />
+              KYC Verification Pending
+            </div>
+            <div style={{ fontSize: '12.5px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              Verify your PAN and Aadhaar identity details to unlock unrestricted trading, holdings portfolios, and funds withdrawals.
+            </div>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            style={{
+              background: 'var(--color-accent)',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              color: 'var(--color-text-inverted)',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px var(--color-accent-0.2)',
+              transition: 'all 0.2s'
+            }}
+          >
+            Start KYC Verification
+          </button>
+        </div>
+      )}
+
+      {kycStatus === 'PENDING' && (
+        <div style={{
+          background: 'var(--color-warning-0.08)',
+          border: '1px solid var(--color-warning-0.2)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          flexWrap: 'wrap',
+          boxSizing: 'border-box'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px', color: 'var(--color-warning)' }}>
+              <Clock size={16} />
+              KYC Profile Under Review
+            </div>
+            <div style={{ fontSize: '12.5px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              Your documents have been submitted and are under manual verification. We will email you once compliance checks complete.
+            </div>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            style={{
+              background: 'var(--color-warning)',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              color: 'var(--color-text-inverted)',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(245, 185, 66, 0.2)',
+              transition: 'all 0.2s'
+            }}
+          >
+            Check KYC Status
+          </button>
+        </div>
+      )}
+
+      {kycStatus === 'APPROVED' && (
+        <div style={{
+          background: 'var(--color-success-0.08)',
+          border: '1px solid var(--color-success-0.2)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          flexWrap: 'wrap',
+          boxSizing: 'border-box'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px', color: 'var(--color-success)' }}>
+              <CheckCircle size={16} />
+              KYC Verification Approved
+            </div>
+            <div style={{ fontSize: '12.5px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              Thank you! Your account verification is active. Your verified trading profiles and wallets are fully activated.
+            </div>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            style={{
+              background: 'var(--color-success)',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              color: 'var(--color-text-inverted)',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+              transition: 'all 0.2s'
+            }}
+          >
+            View KYC Profile
+          </button>
+        </div>
+      )}
+
+      {kycStatus === 'REJECTED' && (
+        <div style={{
+          background: 'var(--color-error-0.1)',
+          border: '1px solid var(--color-error-0.2)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          flexWrap: 'wrap',
+          boxSizing: 'border-box'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px', color: 'var(--color-error)' }}>
+              <Shield size={16} color="var(--color-error)" />
+              KYC Verification Rejected
+            </div>
+            <div style={{ fontSize: '12.5px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              Your KYC application was rejected. Please review feedback and resubmit your details.
+            </div>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            style={{
+              background: 'var(--color-error)',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              color: 'var(--color-text-inverted)',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+              transition: 'all 0.2s'
+            }}
+          >
+            Review & Re-apply
+          </button>
+        </div>
+      )}
 
       {/* Error Alert */}
       {error && (

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Bell, Search, ChevronDown, ArrowUpRight } from 'lucide-react';
+import { Bell, Search, ChevronDown, ArrowUpRight, ShieldCheck, LogOut, User as UserIcon } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { ProfileSettings } from './components/ProfileSettings';
 import { PortfolioChart } from './components/PortfolioChart';
@@ -8,6 +8,7 @@ import { AllocationChart } from './components/AllocationChart';
 import { MarketCards } from './components/MarketCards';
 import { PositionsTable } from './components/PositionsTable';
 import { WatchlistPanel } from './components/WatchlistPanel';
+import { KycVerification } from './components/KycVerification';
 
 const riskMetrics = [
   { label: 'Beta (1Y)', value: '0.94', neutral: true },
@@ -33,6 +34,17 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState(3);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleChangeTab = (e) => {
+      setActiveTab(e.detail);
+    };
+    window.addEventListener('changeTab', handleChangeTab);
+    return () => {
+      window.removeEventListener('changeTab', handleChangeTab);
+    };
+  }, []);
 
   return (
     <div
@@ -165,45 +177,167 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               }
             </button>
 
-            {/* Avatar */}
-            <button
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'var(--color-white-0.04)',
-                border: '1px solid var(--color-white-0.08)',
-                borderRadius: '8px',
-                padding: '5px 10px',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.07)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-white-0.04)'; }}>
-              
-              <div
+            {/* Avatar Dropdown Wrapper */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setAvatarMenuOpen(prev => !prev)}
                 style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, var(--color-accent), #A78BFA)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  color: 'var(--color-text-inverted)'
-                }}>
-                {initials}
-              </div>
-              <ChevronDown size={12} color="var(--color-text-muted)" />
-            </button>
+                  gap: '8px',
+                  background: 'var(--color-white-0.04)',
+                  border: '1px solid var(--color-white-0.08)',
+                  borderRadius: '8px',
+                  padding: '5px 10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.07)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-white-0.04)'; }}>
+                
+                <div
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--color-accent), #A78BFA)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: 'var(--color-text-inverted)'
+                  }}>
+                  {initials}
+                </div>
+                <ChevronDown size={12} color="var(--color-text-muted)" style={{ transform: avatarMenuOpen ? 'rotate(180deg)' : 'none', transition: 'all 0.2s' }} />
+              </button>
+
+              {avatarMenuOpen && (
+                <>
+                  {/* Click outside overlay */}
+                  <div 
+                    onClick={() => setAvatarMenuOpen(false)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'transparent' }}
+                  />
+                  
+                  {/* Floating Menu */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '38px',
+                      right: 0,
+                      width: '200px',
+                      background: 'var(--color-bg-card)',
+                      border: '1px solid var(--color-white-0.08)',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.5), 0 0 0 1px var(--color-white-0.04)',
+                      padding: '6px',
+                      zIndex: 100,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <button
+                      onClick={() => { setActiveTab('profile'); setAvatarMenuOpen(false); }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '8px 12px',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '6px',
+                        color: 'var(--color-text-sub)',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.05)'; e.currentTarget.style.color = 'var(--color-text-main)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-sub)'; }}
+                    >
+                      <UserIcon size={14} />
+                      Profile Settings
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab('kyc'); setAvatarMenuOpen(false); }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '8px 12px',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '6px',
+                        color: 'var(--color-text-sub)',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.05)'; e.currentTarget.style.color = 'var(--color-text-main)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-sub)'; }}
+                    >
+                      <ShieldCheck size={14} />
+                      KYC Verification
+                    </button>
+
+                    <div style={{ height: '1px', background: 'var(--color-white-0.06)', margin: '4px 6px' }} />
+
+                    <button
+                      onClick={() => {
+                        setAvatarMenuOpen(false);
+                        localStorage.removeItem('capitalup-access-token');
+                        localStorage.removeItem('capitalup-refresh-token');
+                        localStorage.removeItem('capitalup-user');
+                        localStorage.removeItem('capitalup-session-expiry');
+                        onNavigate('landing');
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '8px 12px',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '6px',
+                        color: 'var(--color-error)',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-error-0.1)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <LogOut size={14} />
+                      Logout
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Page content */}
         <div style={{ padding: '28px 32px', maxWidth: '1600px' }}>
-          {activeTab === 'profile' || activeTab === 'settings' ? (
+          {activeTab === 'kyc' ? (
+            <motion.div
+              key="kyc-verification"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <KycVerification />
+            </motion.div>
+          ) : activeTab === 'profile' || activeTab === 'settings' ? (
             <motion.div
               key="profile-settings"
               initial={{ opacity: 0, y: 16 }}

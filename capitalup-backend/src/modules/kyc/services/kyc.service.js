@@ -3,6 +3,7 @@ const {
   findKycByPanNumber,
   findKycByAadhaarNumber,
   createKyc,
+  updateKycStatus,
 } = require("../repositories/kyc.repository");
 
 const {
@@ -18,13 +19,17 @@ async function submitKyc({
   panFullName,
   panNumber,
   aadhaarNumber,
+  bankAccountNumber,
+  bankIfsc,
+  bankName,
+  accountHolder,
 }) {
   const existingKyc =
     await getKycByUserId(userId);
 
-  if (existingKyc) {
+  if (existingKyc && existingKyc.kyc_status !== 'NOT_STARTED' && existingKyc.kyc_status !== 'REJECTED') {
     throw new Error(
-      "KYC already completed"
+      "KYC already completed or pending verification"
     );
   }
 
@@ -33,9 +38,9 @@ async function submitKyc({
       panNumber
     );
 
-  if (existingPan) {
+  if (existingPan && existingPan.user_id !== userId) {
     throw new Error(
-      "PAN number already registered"
+      "PAN number already registered to another user"
     );
   }
 
@@ -44,9 +49,9 @@ async function submitKyc({
       aadhaarNumber
     );
 
-  if (existingAadhaar) {
+  if (existingAadhaar && existingAadhaar.user_id !== userId) {
     throw new Error(
-      "Aadhaar number already registered"
+      "Aadhaar number already registered to another user"
     );
   }
 
@@ -55,6 +60,10 @@ async function submitKyc({
     panFullName,
     panNumber,
     aadhaarNumber,
+    bankAccountNumber,
+    bankIfsc,
+    bankName,
+    accountHolder,
   });
 
   await updateUserNameAndLock(
@@ -65,7 +74,15 @@ async function submitKyc({
   return kyc;
 }
 
+async function reviewKyc(userId, status, remarks) {
+  if (status !== "APPROVED" && status !== "REJECTED") {
+    throw new Error("Invalid status. Must be APPROVED or REJECTED");
+  }
+  return await updateKycStatus(userId, status, remarks);
+}
+
 module.exports = {
   getKyc,
   submitKyc,
+  reviewKyc,
 };

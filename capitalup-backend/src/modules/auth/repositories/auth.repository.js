@@ -88,44 +88,44 @@ async function markEmailVerified(email) {
   return result.rows[0];
 }
 
-async function findUserById(id) {
+async function findUserById(userId) {
   const result = await pool.query(
     `
       SELECT *
       FROM users
-      WHERE id = $1
+      WHERE user_id = $1
     `,
-    [id]
+    [userId]
   );
 
   return result.rows[0];
 }
 
-async function markMobileVerified(id) {
+async function markMobileVerified(userId) {
   const result = await pool.query(
     `
       UPDATE users
       SET is_mobile_verified = TRUE,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
+      WHERE user_id = $1
       RETURNING *;
     `,
-    [id]
+    [userId]
   );
 
   return result.rows[0];
 }
 
-async function updateUserPassword(id, passwordHash) {
+async function updateUserPassword(userId, passwordHash) {
   const result = await pool.query(
     `
       UPDATE users
       SET password_hash = $1,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
+      WHERE user_id = $2
       RETURNING *;
     `,
-    [passwordHash, id]
+    [passwordHash, userId]
   );
 
   return result.rows[0];
@@ -141,7 +141,7 @@ async function updateUserNameAndLock(
       SET
         full_name = $1,
         is_name_locked = TRUE
-      WHERE id = $2
+      WHERE user_id = $2
       RETURNING *;
     `,
     [fullName, userId]

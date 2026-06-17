@@ -16,6 +16,15 @@ const submitKycSchema =
     aadhaar_number: z
       .string()
       .regex(/^\d{12}$/),
+
+    bank_account_number: z
+      .string()
+      .min(9)
+      .max(50),
+
+    bank_ifsc: z
+      .string()
+      .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/),
   });
 
 module.exports = {

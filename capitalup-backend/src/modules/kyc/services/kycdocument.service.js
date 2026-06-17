@@ -10,23 +10,14 @@ async function uploadDocuments({
   panDocumentUrl,
   aadhaarFrontUrl,
   aadhaarBackUrl,
+  signatureDocumentUrl,
 }) {
-  const existing =
-    await getDocumentsByUserId(
-      userId
-    );
-
-  if (existing) {
-    throw new Error(
-      "Documents already uploaded"
-    );
-  }
-
   return createDocuments({
     userId,
     panDocumentUrl,
     aadhaarFrontUrl,
     aadhaarBackUrl,
+    signatureDocumentUrl,
   });
 }
 

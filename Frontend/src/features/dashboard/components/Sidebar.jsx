@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, TrendingUp, PieChart, BarChart3, Star,
-  ClipboardList, BookOpen, Settings, LogOut } from
+  ClipboardList, BookOpen, Settings, LogOut, ShieldCheck } from
 'lucide-react';
 
 const navItems = [
@@ -14,9 +15,44 @@ const navItems = [
 ];
 
 export function Sidebar({ activeTab, onTabChange, onNavigate }) {
-  const user = JSON.parse(localStorage.getItem('capitalup-user') || '{}');
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('capitalup-user') || '{}'));
+  const [kycStatus, setKycStatus] = useState(() => localStorage.getItem('capitalup-kyc-status') || 'NOT_STARTED');
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setKycStatus(localStorage.getItem('capitalup-kyc-status') || 'NOT_STARTED');
+      setUser(JSON.parse(localStorage.getItem('capitalup-user') || '{}'));
+    };
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(handleStorageChange, 1000);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
   const fullName = user.full_name || 'James Dornan';
   const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'JD';
+
+  const getKycBadgeStyle = () => {
+    if (kycStatus === 'APPROVED') {
+      return { background: 'var(--color-success-0.1)', color: 'var(--color-success)' };
+    }
+    if (kycStatus === 'PENDING') {
+      return { background: 'var(--color-warning-0.1)', color: 'var(--color-warning)' };
+    }
+    if (kycStatus === 'REJECTED') {
+      return { background: 'var(--color-error-0.1)', color: 'var(--color-error)' };
+    }
+    return { background: 'var(--color-white-0.08)', color: 'var(--color-text-muted)' };
+  };
+
+  const getKycBadgeText = () => {
+    if (kycStatus === 'APPROVED') return 'Done';
+    if (kycStatus === 'PENDING') return 'Review';
+    if (kycStatus === 'REJECTED') return 'Rejected';
+    return 'Pending';
+  };
 
   return (
     <aside
@@ -184,7 +220,8 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
             fontSize: '13px',
             fontFamily: 'DM Sans, sans-serif',
             textAlign: 'left',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            marginBottom: '4px'
           }}
           onMouseEnter={(e) => {
             if (activeTab !== 'settings') {
@@ -201,6 +238,54 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
           
           <Settings size={15} strokeWidth={1.8} />
           Settings
+        </button>
+
+        <button
+          onClick={() => onTabChange('kyc')}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '9px 12px',
+            borderRadius: '8px',
+            border: 'none',
+            cursor: 'pointer',
+            color: activeTab === 'kyc' ? 'var(--color-accent)' : 'var(--color-text-muted)',
+            background: activeTab === 'kyc' ? 'var(--color-accent-0.1)' : 'transparent',
+            fontSize: '13px',
+            fontFamily: 'DM Sans, sans-serif',
+            textAlign: 'left',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            if (activeTab !== 'kyc') {
+              e.currentTarget.style.background = 'var(--color-white-0.05)';
+              e.currentTarget.style.color = 'var(--color-text-sub)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'kyc') {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--color-text-muted)';
+            }
+          }}>
+          
+          <ShieldCheck size={15} strokeWidth={1.8} />
+          KYC Verification
+          <span
+            style={{
+              marginLeft: 'auto',
+              fontSize: '10px',
+              fontWeight: 600,
+              padding: '1px 6px',
+              borderRadius: '4px',
+              transition: 'all 0.2s',
+              ...getKycBadgeStyle()
+            }}
+          >
+            {getKycBadgeText()}
+          </span>
         </button>
       </nav>
  

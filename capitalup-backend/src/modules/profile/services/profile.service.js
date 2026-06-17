@@ -35,27 +35,27 @@ async function updateUserProfile(
   let paramIndex = 1;
 
   if (
-  incomingData.full_name &&
-  incomingData.full_name !== existingProfile.full_name
-) {
-  if (existingProfile.is_name_locked) {
-    throw new Error(
-      "Name cannot be modified after KYC approval"
+    incomingData.full_name &&
+    incomingData.full_name !== existingProfile.full_name
+  ) {
+    if (existingProfile.is_name_locked) {
+      throw new Error(
+        "Name cannot be modified after KYC approval"
+      );
+    }
+
+    userUpdates.push(
+      `full_name = $${paramIndex++}`
+    );
+    userValues.push(
+      incomingData.full_name
     );
   }
-
-  userUpdates.push(
-    `full_name = $${paramIndex++}`
-  );
-  userValues.push(
-    incomingData.full_name
-  );
-}
 
   if (incomingData.mobile_number && incomingData.mobile_number !== existingProfile.mobile_number) {
     // Check if new mobile number is already taken
     const existingMobile = await findUserByMobile(incomingData.mobile_number);
-    if (existingMobile && existingMobile.id !== userId) {
+    if (existingMobile && existingMobile.user_id !== userId) {
       throw new Error("Mobile number is already registered to another account");
     }
     userUpdates.push(`mobile_number = $${paramIndex++}`);
@@ -71,16 +71,29 @@ async function updateUserProfile(
         UPDATE users
         SET ${setClause},
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $${paramIndex}
+        WHERE user_id = $${paramIndex}
       `,
       userValues
     );
   }
 
   const mergedProfile = {
-    date_of_birth:
+    full_name:
+      incomingData.full_name ??
+      existingProfile.full_name,
+
+    father_name:
+      incomingData.father_name ??
+      existingProfile.father_name,
+
+    mother_name:
+      incomingData.mother_name ??
+      existingProfile.mother_name,
+
+    dob:
+      incomingData.dob ??
       incomingData.date_of_birth ??
-      existingProfile.date_of_birth,
+      existingProfile.dob,
 
     gender:
       incomingData.gender ??
@@ -90,9 +103,10 @@ async function updateUserProfile(
       incomingData.occupation ??
       existingProfile.occupation,
 
-    annual_income:
+    income:
+      incomingData.income ??
       incomingData.annual_income ??
-      existingProfile.annual_income,
+      existingProfile.income,
 
     address:
       incomingData.address ??

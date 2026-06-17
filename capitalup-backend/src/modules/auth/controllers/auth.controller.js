@@ -255,7 +255,7 @@ async function verifyMobileOtp(req, res) {
         const { findUserByMobile, markMobileVerified } = require("../repositories/auth.repository");
         const user = await findUserByMobile(mobile_number);
         if (user) {
-          verifiedUser = await markMobileVerified(user.id);
+          verifiedUser = await markMobileVerified(user.user_id);
         }
       }
 

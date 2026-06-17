@@ -47,5 +47,19 @@ const stockRoutes = require(
 
 app.use("/stocks", stockRoutes);
 
+// Portfolio Routes
+const portfolioRoutes = require(
+  "./modules/portfolio/routes/portfolio.routes"
+);
+
+app.use("/portfolio", portfolioRoutes);
+
+// Order Routes
+const orderRoutes = require(
+  "./modules/orders/routes/order.routes.js"
+);
+
+app.use("/orders",orderRoutes);
+
 
 module.exports = app;

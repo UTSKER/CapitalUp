@@ -8,6 +8,17 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return {};
+  }
+}
+
 export function KycVerification() {
   const [user, setUser] = useState(() => {
     return JSON.parse(localStorage.getItem('capitalup-user') || '{}');
@@ -19,6 +30,7 @@ export function KycVerification() {
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
   // Form Fields State
@@ -307,7 +319,35 @@ export function KycVerification() {
     }
   };
 
+  const applySimulatedReview = (status, reason = '', verifiedName = '') => {
+    const userStr = localStorage.getItem('capitalup-user');
+    let updatedUser = user;
+
+    if (userStr) {
+      updatedUser = JSON.parse(userStr);
+      updatedUser.kyc_is_done = status === 'APPROVED';
+
+      if (status === 'APPROVED') {
+        updatedUser.full_name = verifiedName || formData.panFullName || updatedUser.full_name;
+      }
+
+      localStorage.setItem('capitalup-user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    }
+
+    setKycStatus(status);
+    localStorage.setItem('capitalup-kyc-status', status);
+
+    if (status === 'REJECTED') {
+      setRejectReason(reason);
+    }
+
+    window.dispatchEvent(new Event('storage'));
+  };
+
   const simulateAdminApprove = async () => {
+    setIsReviewing(true);
+
     try {
       const token = localStorage.getItem('capitalup-access-token');
       const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -320,40 +360,34 @@ export function KycVerification() {
         },
         body: JSON.stringify({ status: 'APPROVED', remarks: 'KYC Approved via Administrator Simulator' })
       });
-      
-      if (res.ok) {
-        setKycStatus('APPROVED');
-        localStorage.setItem('capitalup-kyc-status', 'APPROVED');
-        
-        const userStr = localStorage.getItem('capitalup-user');
-        if (userStr) {
-          const userObj = JSON.parse(userStr);
-          userObj.kyc_is_done = true;
-          
-          const payload = await res.json();
-          // Sync with PAN name if returned
-          if (payload.data && payload.data.pan_name) {
-            userObj.full_name = payload.data.pan_name;
-          }
-          localStorage.setItem('capitalup-user', JSON.stringify(userObj));
-          setUser(userObj);
-          window.dispatchEvent(new Event('storage'));
-        }
-        
-        confetti({
-          particleCount: 200,
-          spread: 120,
-          origin: { y: 0.4 },
-          colors: ['#10B981', '#3B82F6', '#22C55E']
-        });
+
+      const payload = await readJsonResponse(res);
+
+      const approvedName = payload.data?.pan_name || formData.panFullName;
+      if (approvedName) {
+        setFormData(prev => ({ ...prev, panFullName: approvedName }));
       }
+
+      applySimulatedReview('APPROVED', '', approvedName);
+
+      confetti({
+        particleCount: 200,
+        spread: 120,
+        origin: { y: 0.4 },
+        colors: ['#10B981', '#3B82F6', '#22C55E']
+      });
     } catch (err) {
       console.error('Failed to simulate admin approval:', err);
+      applySimulatedReview('APPROVED', '', formData.panFullName);
+    } finally {
+      setIsReviewing(false);
     }
   };
 
   const simulateAdminReject = async (reason) => {
     const finalReason = reason || 'Verification failed. Uploaded signature not matching the PAN card cardholders name.';
+    setIsReviewing(true);
+
     try {
       const token = localStorage.getItem('capitalup-access-token');
       const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -366,23 +400,15 @@ export function KycVerification() {
         },
         body: JSON.stringify({ status: 'REJECTED', remarks: finalReason })
       });
+
+      const payload = await readJsonResponse(res);
       
-      if (res.ok) {
-        setKycStatus('REJECTED');
-        setRejectReason(finalReason);
-        localStorage.setItem('capitalup-kyc-status', 'REJECTED');
-        
-        const userStr = localStorage.getItem('capitalup-user');
-        if (userStr) {
-          const userObj = JSON.parse(userStr);
-          userObj.kyc_is_done = false;
-          localStorage.setItem('capitalup-user', JSON.stringify(userObj));
-          setUser(userObj);
-          window.dispatchEvent(new Event('storage'));
-        }
-      }
+      applySimulatedReview('REJECTED', finalReason);
     } catch (err) {
       console.error('Failed to simulate admin rejection:', err);
+      applySimulatedReview('REJECTED', finalReason);
+    } finally {
+      setIsReviewing(false);
     }
   };
 
@@ -1859,6 +1885,7 @@ export function KycVerification() {
               
               <button
                 onClick={simulateAdminApprove}
+                disabled={isReviewing}
                 style={{
                   background: 'var(--color-success)',
                   border: 'none',
@@ -1867,7 +1894,8 @@ export function KycVerification() {
                   color: 'var(--color-text-inverted)',
                   fontSize: '13px',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: isReviewing ? 'not-allowed' : 'pointer',
+                  opacity: isReviewing ? 0.75 : 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1876,13 +1904,14 @@ export function KycVerification() {
                   boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)'
                 }}
               >
-                Approve KYC Application
+                {isReviewing ? 'Applying Review...' : 'Approve KYC Application'}
               </button>
 
               <div style={{ borderTop: '1px solid var(--color-white-0.06)', margin: '8px 0' }} />
 
               <button
                 onClick={() => simulateAdminReject('Rejection: Bank account name matching verification failed. Please check account details.')}
+                disabled={isReviewing}
                 style={{
                   background: 'var(--color-error)',
                   border: 'none',
@@ -1891,7 +1920,8 @@ export function KycVerification() {
                   color: 'var(--color-text-inverted)',
                   fontSize: '13px',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: isReviewing ? 'not-allowed' : 'pointer',
+                  opacity: isReviewing ? 0.75 : 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1900,7 +1930,7 @@ export function KycVerification() {
                   boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
                 }}
               >
-                Reject KYC Application
+                {isReviewing ? 'Applying Review...' : 'Reject KYC Application'}
               </button>
             </div>
           </div>

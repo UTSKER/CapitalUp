@@ -24,27 +24,54 @@ const recentActivity = [
   { type: 'DIV', ticker: 'BRK.B', shares: 0, price: 0, time: 'May 28', total: 420.00 }
 ];
 
+function getTabFromPath(pathname) {
+  if (pathname.startsWith('/user/')) return 'profile';
+
+  const [, section, tab] = pathname.split('/');
+  if (section !== 'dashboard') return 'overview';
+  return tab || 'overview';
+}
+
 export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   const user = JSON.parse(localStorage.getItem('capitalup-user') || '{}');
   const fullName = user.full_name || 'James Dornan';
   const firstName = fullName.split(' ')[0] || 'James';
   const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'JD';
+  const userId = user.user_id || user.id || 'profile';
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => getTabFromPath(window.location.pathname));
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState(3);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 
+  const changeTab = (tab) => {
+    const path = tab === 'profile' || tab === 'settings'
+      ? `/user/${userId}`
+      : tab === 'overview'
+        ? '/dashboard'
+        : `/dashboard/${tab}`;
+
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    setActiveTab(tab);
+  };
+
   useEffect(() => {
     const handleChangeTab = (e) => {
-      setActiveTab(e.detail);
+      changeTab(e.detail);
+    };
+    const handlePopState = () => {
+      setActiveTab(getTabFromPath(window.location.pathname));
     };
     window.addEventListener('changeTab', handleChangeTab);
+    window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('changeTab', handleChangeTab);
+      window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [userId]);
 
   return (
     <div
@@ -57,7 +84,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
       }}>
       
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onNavigate={onNavigate} />
+      <Sidebar activeTab={activeTab} onTabChange={changeTab} onNavigate={onNavigate} />
 
       {/* Main content */}
       <div style={{ flex: 1, marginLeft: '232px', minWidth: 0 }}>
@@ -241,7 +268,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                     }}
                   >
                     <button
-                      onClick={() => { setActiveTab('profile'); setAvatarMenuOpen(false); }}
+                      onClick={() => { changeTab('profile'); setAvatarMenuOpen(false); }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -265,7 +292,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                     </button>
 
                     <button
-                      onClick={() => { setActiveTab('kyc'); setAvatarMenuOpen(false); }}
+                      onClick={() => { changeTab('kyc'); setAvatarMenuOpen(false); }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

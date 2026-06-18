@@ -4,19 +4,46 @@ import { AuthScreen } from './features/auth/AuthScreen';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
+const viewRoutes = {
+  landing: '/',
+  login: '/login',
+  register: '/register',
+  forgot: '/forgot',
+  dashboard: '/dashboard'
+};
+
+function getViewFromPath(pathname) {
+  if (pathname === '/login') return 'login';
+  if (pathname === '/register') return 'register';
+  if (pathname === '/forgot') return 'forgot';
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/user/')) return 'dashboard';
+  return 'landing';
+}
+
+function hasActiveSession() {
+  const token = localStorage.getItem('capitalup-access-token');
+  const expiry = localStorage.getItem('capitalup-session-expiry');
+  return Boolean(token && expiry && Date.now() < Number(expiry));
+}
+
+function clearSession() {
+  localStorage.removeItem('capitalup-access-token');
+  localStorage.removeItem('capitalup-refresh-token');
+  localStorage.removeItem('capitalup-user');
+  localStorage.removeItem('capitalup-session-expiry');
+}
+
 export default function App() {
   const [view, setView] = useState(() => {
-    const token = localStorage.getItem('capitalup-access-token');
-    const expiry = localStorage.getItem('capitalup-session-expiry');
-    if (token && expiry && Date.now() < Number(expiry)) {
-      return 'dashboard';
+    const routeView = getViewFromPath(window.location.pathname);
+    if (hasActiveSession()) {
+      return routeView;
     }
-    // Clean up expired or invalid session keys
-    localStorage.removeItem('capitalup-access-token');
-    localStorage.removeItem('capitalup-refresh-token');
-    localStorage.removeItem('capitalup-user');
-    localStorage.removeItem('capitalup-session-expiry');
-    return 'landing';
+    clearSession();
+    if (routeView === 'dashboard') {
+      window.history.replaceState({}, '', '/login');
+    }
+    return routeView === 'dashboard' ? 'login' : routeView;
   });
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('capitalup-theme') || 'default';
@@ -30,6 +57,24 @@ export default function App() {
     root.classList.add(`theme-${theme}`);
   }, [theme]);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!hasActiveSession()) {
+        clearSession();
+        const routeView = getViewFromPath(window.location.pathname);
+        if (routeView === 'dashboard') {
+          window.history.replaceState({}, '', '/login');
+        }
+        setView(routeView === 'dashboard' ? 'login' : routeView);
+        return;
+      }
+      setView(getViewFromPath(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const changeTheme = (newTheme) => {
     if (newTheme === theme) return;
     setOldTheme(theme);
@@ -41,7 +86,21 @@ export default function App() {
     }, 1200);
   };
 
-  const navigate = (v) => setView(v);
+  const navigate = (v, options = {}) => {
+    const nextPath = options.path || viewRoutes[v] || '/';
+    const nextView = getViewFromPath(nextPath);
+
+    if (!hasActiveSession() && nextView === 'dashboard') {
+      window.history.pushState({}, '', '/login');
+      setView('login');
+      return;
+    }
+
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath);
+    }
+    setView(nextView);
+  };
 
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy_client_id'}>

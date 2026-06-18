@@ -1,6 +1,29 @@
 import { useState, useEffect } from 'react';
 import { User, Mail, Phone, Shield, Key, Check, Copy, Moon, Sun, Terminal, Eye, EyeOff, CheckCircle, Clock } from 'lucide-react';
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return {
+      success: false,
+      message: response.ok
+        ? 'Server returned an invalid response.'
+        : 'Server returned an invalid error response.'
+    };
+  }
+}
+
+function getPayloadMessage(payload, fallback) {
+  return payload.errors?.[0]?.message || payload.message || fallback;
+}
+
 export function ProfileSettings({ currentTheme, onChangeTheme }) {
   const [formData, setFormData] = useState(() => {
     try {
@@ -100,13 +123,13 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
             newPassword: pwData.newPassword
           })
         });
-        payload = await res.json();
+        payload = await readJsonResponse(res);
         if (res.ok && payload.success) {
           setPwSuccess('Password reset successfully using OTP!');
           setIsForgotMode(false);
           setPwData({ currentPassword: '', newPassword: '', confirmPassword: '', otp: '' });
         } else {
-          setPwError(payload.message || 'Failed to reset password. Please check the OTP.');
+          setPwError(getPayloadMessage(payload, 'Failed to reset password. Please check the OTP.'));
         }
       } else {
         // Normal password change requiring current password
@@ -121,12 +144,12 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
             newPassword: pwData.newPassword
           })
         });
-        payload = await res.json();
+        payload = await readJsonResponse(res);
         if (res.ok && payload.success) {
           setPwSuccess('Password updated successfully!');
           setPwData({ currentPassword: '', newPassword: '', confirmPassword: '', otp: '' });
         } else {
-          setPwError(payload.message || 'Failed to update password');
+          setPwError(getPayloadMessage(payload, 'Failed to update password'));
         }
       }
     } catch (err) {
@@ -159,12 +182,12 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           forceSend: true
         })
       });
-      const payload = await res.json();
+      const payload = await readJsonResponse(res);
       if (res.ok && payload.success) {
         setIsForgotMode(true);
         setForgotPwMessage('A verification OTP has been sent to your email.');
       } else {
-        setPwError(payload.message || 'Failed to send verification code.');
+        setPwError(getPayloadMessage(payload, 'Failed to send verification code.'));
       }
     } catch (err) {
       setPwError('Failed to send verification code.');
@@ -182,7 +205,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           'Authorization': `Bearer ${token}`
         }
       });
-      const payload = await res.json();
+      const payload = await readJsonResponse(res);
       if (res.ok && payload.success) {
         const data = payload.data;
         setProfile(data);
@@ -194,7 +217,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
         });
         setIsMobileVerified(data.is_mobile_verified || false);
       } else {
-        setError(payload.message || 'Failed to load profile');
+        setError(getPayloadMessage(payload, 'Failed to load profile'));
       }
     } catch (err) {
       setError('Failed to load profile details from server.');
@@ -228,7 +251,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
         })
       });
       
-      const payload = await res.json();
+      const payload = await readJsonResponse(res);
       if (res.ok && payload.success) {
         setSavedStatus(true);
         const updated = payload.data;
@@ -246,7 +269,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
         }
         setTimeout(() => setSavedStatus(false), 3000);
       } else {
-        setError(payload.message || 'Failed to update profile');
+        setError(getPayloadMessage(payload, 'Failed to update profile'));
       }
     } catch (err) {
       setError('Failed to save profile changes.');
@@ -289,8 +312,8 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
       });
 
       if (!saveRes.ok) {
-        const savePayload = await saveRes.json();
-        throw new Error(savePayload.message || 'Failed to update phone number in profile.');
+        const savePayload = await readJsonResponse(saveRes);
+        throw new Error(getPayloadMessage(savePayload, 'Failed to update phone number in profile.'));
       }
 
       setIsMobileVerified(false);
@@ -305,12 +328,12 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
         body: JSON.stringify({ mobile_number: formData.phone })
       });
       
-      const payload = await res.json();
+      const payload = await readJsonResponse(res);
       if (res.ok && payload.success) {
         setOtpMessage('Verification SMS sent successfully.');
         setShowOtpInput(true);
       } else {
-        setOtpError(payload.message || 'Failed to send verification code.');
+        setOtpError(getPayloadMessage(payload, 'Failed to send verification code.'));
       }
     } catch (err) {
       setOtpError(err.message || 'Failed to send verification SMS.');
@@ -341,7 +364,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
         body: JSON.stringify({ mobile_number: formData.phone, otp: otpCode })
       });
       
-      const payload = await res.json();
+      const payload = await readJsonResponse(res);
       if (res.ok && payload.success) {
         setIsMobileVerified(true);
         setOtpMessage('Mobile number verified successfully!');
@@ -361,7 +384,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           setOtpCode('');
         }, 2500);
       } else {
-        setOtpError(payload.message || 'Invalid verification code.');
+        setOtpError(getPayloadMessage(payload, 'Invalid verification code.'));
       }
     } catch (err) {
       setOtpError('Failed to verify OTP.');

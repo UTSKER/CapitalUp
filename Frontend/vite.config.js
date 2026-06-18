@@ -36,6 +36,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/auth': 'http://localhost:3000',
+      '/profile': 'http://localhost:3000',
+      '/kyc': 'http://localhost:3000',
+      '/watchlist': 'http://localhost:3000',
+      '/stocks': 'http://localhost:3000',
+      '/portfolio': 'http://localhost:3000',
+      '/orders': 'http://localhost:3000',
     },
   },
 })

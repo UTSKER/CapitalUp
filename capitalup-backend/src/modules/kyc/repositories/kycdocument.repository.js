@@ -7,7 +7,8 @@ async function getDocumentsByUserId(userId) {
         p.pan_front AS pan_document_url,
         a.aadhaar_front AS aadhaar_front_url,
         a.aadhaar_back AS aadhaar_back_url,
-        s.signature_image
+        s.signature_image,
+        s.signature_image AS signature_document_url
       FROM users u
       LEFT JOIN pan_details p ON u.user_id = p.user_id
       LEFT JOIN aadhaar_details a ON u.user_id = a.user_id
@@ -75,7 +76,8 @@ async function createDocuments({
       pan_document_url: panDocumentUrl,
       aadhaar_front_url: aadhaarFrontUrl,
       aadhaar_back_url: aadhaarBackUrl,
-      signature_image: signatureDocumentUrl
+      signature_image: signatureDocumentUrl,
+      signature_document_url: signatureDocumentUrl
     };
   } catch (error) {
     await client.query("ROLLBACK");

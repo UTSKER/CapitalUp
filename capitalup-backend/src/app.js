@@ -62,4 +62,16 @@ const orderRoutes = require(
 app.use("/orders",orderRoutes);
 
 
+// Admin Routes
+const adminRoutes =
+  require(
+    "./modules/admin/routes/admin.routes"
+  );
+
+  app.use(
+  "/admin",
+  adminRoutes
+);
+
+
 module.exports = app;

@@ -15,12 +15,16 @@ async function getKycByUserId(userId) {
         p.pan_number,
         p.pan_name,
         p.pan_front,
+        p.pan_front AS pan_document_url,
         p.verification AS pan_verification,
         a.aadhaar_number,
         a.aadhaar_front,
+        a.aadhaar_front AS aadhaar_front_url,
         a.aadhaar_back,
+        a.aadhaar_back AS aadhaar_back_url,
         a.verification AS aadhaar_verification,
         s.signature_image,
+        s.signature_image AS signature_document_url,
         s.verification AS signature_verification,
         b.bank_name,
         b.account_number,
@@ -190,83 +194,9 @@ async function createKyc({
   }
 }
 
-async function updateKycStatus(userId, status, remarks) {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
-    // 1. Update kyc status
-    const kycRes = await client.query(
-      `
-        UPDATE kyc
-        SET kyc_status = $1,
-            remarks = $2,
-            approved_at = CASE WHEN $1 = 'APPROVED' THEN NOW() ELSE approved_at END,
-            updated_at = NOW()
-        WHERE user_id = $3
-        RETURNING *;
-      `,
-      [status, remarks, userId]
-    );
-
-    const kyc = kycRes.rows[0];
-
-    // 2. If approved, lock user name and sync details
-    if (status === "APPROVED" && kyc) {
-      // Get pan_name from pan_details
-      const panRes = await client.query(
-        `
-          SELECT pan_name
-          FROM pan_details
-          WHERE pan_id = $1
-        `,
-        [kyc.pan_id]
-      );
-      
-      const panName = panRes.rows[0]?.pan_name;
-
-      if (panName) {
-        // Update users table: full_name and is_name_locked = TRUE
-        await client.query(
-          `
-            UPDATE users
-            SET full_name = $1,
-                is_name_locked = TRUE,
-                updated_at = NOW()
-            WHERE user_id = $2
-          `,
-          [panName, userId]
-        );
-
-        // Update user_profile table: full_name and sync with users
-        await client.query(
-          `
-            INSERT INTO user_profile (user_id, full_name, updated_at)
-            VALUES ($1, $2, NOW())
-            ON CONFLICT (user_id)
-            DO UPDATE SET
-              full_name = EXCLUDED.full_name,
-              updated_at = NOW()
-          `,
-          [userId, panName]
-        );
-      }
-    }
-
-    await client.query("COMMIT");
-    return kyc;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
 module.exports = {
   getKycByUserId,
   findKycByPanNumber,
   findKycByAadhaarNumber,
   createKyc,
-  updateKycStatus,
 };

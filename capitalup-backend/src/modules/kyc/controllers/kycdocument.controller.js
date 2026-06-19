@@ -2,7 +2,7 @@ const {
   uploadDocuments,
   getDocuments,
 } = require(
-  "../services/kycDocument.service"
+  "../services/kycdocument.service"
 );
 
 async function uploadKycDocuments(

@@ -1,7 +1,6 @@
 const {
   getKyc,
   submitKyc,
-  reviewKyc,
 } = require("../services/kyc.service");
 
 async function getKycDetails(
@@ -71,28 +70,7 @@ async function submitKycDetails(
   }
 }
 
-async function reviewKycDetails(req, res) {
-  try {
-    const userId = req.user.userId;
-    const { status, remarks } = req.body;
-
-    const kyc = await reviewKyc(userId, status, remarks);
-
-    return res.status(200).json({
-      success: true,
-      message: `KYC updated to ${status} successfully`,
-      data: kyc,
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
 module.exports = {
   getKycDetails,
   submitKycDetails,
-  reviewKycDetails,
 };

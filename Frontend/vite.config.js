@@ -42,6 +42,7 @@ export default defineConfig({
       '/stocks': 'http://localhost:3000',
       '/portfolio': 'http://localhost:3000',
       '/orders': 'http://localhost:3000',
+      '/admin': 'http://localhost:3000',
     },
   },
 })

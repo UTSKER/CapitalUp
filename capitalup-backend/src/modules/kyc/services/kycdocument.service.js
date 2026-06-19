@@ -2,7 +2,7 @@ const {
   getDocumentsByUserId,
   createDocuments,
 } = require(
-  "../repositories/kycDocument.repository"
+  "../repositories/kycdocument.repository"
 );
 
 async function uploadDocuments({

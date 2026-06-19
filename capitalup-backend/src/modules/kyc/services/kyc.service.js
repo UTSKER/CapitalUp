@@ -3,7 +3,6 @@ const {
   findKycByPanNumber,
   findKycByAadhaarNumber,
   createKyc,
-  updateKycStatus,
 } = require("../repositories/kyc.repository");
 
 const {
@@ -74,15 +73,7 @@ async function submitKyc({
   return kyc;
 }
 
-async function reviewKyc(userId, status, remarks) {
-  if (status !== "APPROVED" && status !== "REJECTED") {
-    throw new Error("Invalid status. Must be APPROVED or REJECTED");
-  }
-  return await updateKycStatus(userId, status, remarks);
-}
-
 module.exports = {
   getKyc,
   submitKyc,
-  reviewKyc,
 };

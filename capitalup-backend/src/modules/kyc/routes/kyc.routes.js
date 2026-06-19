@@ -26,7 +26,6 @@ const {
 const {
   getKycDetails,
   submitKycDetails,
-  reviewKycDetails,
 } = require("../controllers/kyc.controller");
 
 const router =
@@ -43,12 +42,6 @@ router.post(
   authenticate,
   validate(submitKycSchema),
   submitKycDetails
-);
-
-router.patch(
-  "/status",
-  authenticate,
-  reviewKycDetails
 );
 
 router.post(

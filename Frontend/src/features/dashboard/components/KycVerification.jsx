@@ -356,7 +356,18 @@ export function KycVerification() {
           bank_account_number: formData.accountNumber,
           bank_ifsc: formData.ifscCode.toUpperCase(),
           bank_name: formData.bankName,
-          account_holder: formData.panFullName
+          account_holder: formData.panFullName,
+          date_of_birth: formData.dob,
+          gender: formData.gender,
+          marital_status: formData.maritalStatus,
+          father_name: formData.fathersName,
+          mother_name: formData.mothersName,
+          occupation: formData.occupation,
+          annual_income: formData.incomeRange,
+          address: [formData.addressLine1, formData.addressLine2].filter(Boolean).join(', '),
+          city: formData.city,
+          state: formData.state,
+          pincode: formData.pincode
         })
       });
 
@@ -1766,10 +1777,10 @@ export function KycVerification() {
         </div>
 
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 340px',
-          gap: '24px'
-        }} className="max-xl:grid-cols-1">
+          display: 'flex',
+          justifyContent: 'center',
+          width: '100%'
+        }}>
           
           <div style={{
             background: 'var(--color-bg-panel-0.95)',
@@ -1780,7 +1791,10 @@ export function KycVerification() {
             flexDirection: 'column',
             alignItems: 'center',
             textAlign: 'center',
-            gap: '24px'
+            gap: '24px',
+            width: '100%',
+            maxWidth: '760px',
+            boxSizing: 'border-box'
           }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{

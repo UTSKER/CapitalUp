@@ -29,8 +29,23 @@ async function getKycByUserId(userId) {
         b.bank_name,
         b.account_number,
         b.ifsc_code,
-        b.account_holder
+        b.account_holder,
+        u.email,
+        u.mobile_number,
+        up.dob,
+        up.gender,
+        up.marital_status,
+        up.occupation,
+        up.income,
+        up.father_name,
+        up.mother_name,
+        up.address,
+        up.city,
+        up.state,
+        up.pincode
       FROM kyc k
+      JOIN users u ON k.user_id = u.user_id
+      LEFT JOIN user_profile up ON k.user_id = up.user_id
       LEFT JOIN pan_details p ON k.pan_id = p.pan_id
       LEFT JOIN aadhaar_details a ON k.aadhaar_id = a.aadhaar_id
       LEFT JOIN signature_details s ON k.signature_id = s.signature_id
@@ -78,6 +93,7 @@ async function createKyc({
   bankIfsc,
   bankName,
   accountHolder,
+  profile,
 }) {
   const client = await pool.connect();
   try {
@@ -151,18 +167,37 @@ async function createKyc({
     );
     const signatureId = sigRes.rows[0].signature_id;
 
-    // 5. User Profile compliance fields (sync names and basic data)
+    // 5. Persist the personal details entered in the KYC wizard. The account
+    // name itself is deliberately changed only by the approval transaction.
     await client.query(
       `
-        INSERT INTO user_profile (user_id, full_name, updated_at)
-        VALUES ($1, $2, NOW())
+        INSERT INTO user_profile (
+          user_id, father_name, mother_name, dob, gender, marital_status,
+          occupation, income, address, city, state, pincode, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
         ON CONFLICT (user_id)
         DO UPDATE SET
-          full_name = EXCLUDED.full_name,
+          father_name = EXCLUDED.father_name,
+          mother_name = EXCLUDED.mother_name,
+          dob = EXCLUDED.dob,
+          gender = EXCLUDED.gender,
+          marital_status = EXCLUDED.marital_status,
+          occupation = EXCLUDED.occupation,
+          income = EXCLUDED.income,
+          address = EXCLUDED.address,
+          city = EXCLUDED.city,
+          state = EXCLUDED.state,
+          pincode = EXCLUDED.pincode,
           updated_at = NOW()
         RETURNING profile_id;
       `,
-      [userId, panFullName]
+      [
+        userId, profile.fatherName, profile.motherName, profile.dob,
+        profile.gender, profile.maritalStatus, profile.occupation,
+        profile.income, profile.address, profile.city, profile.state,
+        profile.pincode,
+      ]
     );
 
     // 6. Central kyc junction record

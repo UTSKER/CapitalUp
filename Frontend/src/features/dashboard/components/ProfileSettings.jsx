@@ -209,6 +209,10 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
       if (res.ok && payload.success) {
         const data = payload.data;
         setProfile(data);
+        if (data.kyc_status) {
+          setKycStatus(data.kyc_status);
+          localStorage.setItem('capitalup-kyc-status', data.kyc_status);
+        }
         setFormData({
           name: data.full_name || '',
           email: data.email || '',
@@ -471,6 +475,14 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
       </div>
 
       {/* KYC Status Banner */}
+      {kycStatus !== 'NOT_STARTED' && (
+        <button onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'personal-information' }))} style={{
+          alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--color-accent)',
+          border: 'none', borderRadius: '8px', padding: '10px 18px', color: 'var(--color-text-inverted)', fontSize: '13px',
+          fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px var(--color-accent-0.2)'
+        }}><User size={15} /> Personal Information</button>
+      )}
+
       {kycStatus === 'NOT_STARTED' && (
         <div style={{
           background: 'var(--color-accent-0.06)',
@@ -844,7 +856,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                     }} />
                 </div>
 
-                {isMobileVerified && (
+                {true && (
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 500 }}>Phone Number</label>
                     <div style={{ position: 'relative' }}>
@@ -880,7 +892,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                         borderRadius: '4px',
                         fontWeight: 500
                       }}>
-                        <CheckCircle size={11} /> Verified
+                        <CheckCircle size={11} /> {isMobileVerified ? 'Verified' : 'Registered'}
                       </span>
                     </div>
                   </div>
@@ -919,7 +931,7 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           </div>
 
           {/* Mobile Verification Box */}
-          {!isMobileVerified && (
+          {false && !isMobileVerified && (
             <div
               style={{
                 background: 'var(--color-bg-panel-0.95)',

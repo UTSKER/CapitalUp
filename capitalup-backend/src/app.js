@@ -74,4 +74,16 @@ const adminRoutes =
 );
 
 
+// limit - orderes routes
+
+const limitorderRoutes =  
+require(
+      "./modules/limit-order/routes/limitOrder.routes.js"
+);
+
+app.use(
+  "/limit-orders",
+  limitorderRoutes
+);
+
 module.exports = app;

@@ -5,10 +5,6 @@ const {
   createKyc,
 } = require("../repositories/kyc.repository");
 
-const {
-  updateUserNameAndLock,
-} = require("../../auth/repositories/auth.repository");
-
 async function getKyc(userId) {
   return await getKycByUserId(userId);
 }
@@ -22,6 +18,7 @@ async function submitKyc({
   bankIfsc,
   bankName,
   accountHolder,
+  profile,
 }) {
   const existingKyc =
     await getKycByUserId(userId);
@@ -63,12 +60,8 @@ async function submitKyc({
     bankIfsc,
     bankName,
     accountHolder,
+    profile,
   });
-
-  await updateUserNameAndLock(
-    userId,
-    panFullName
-  );
 
   return kyc;
 }

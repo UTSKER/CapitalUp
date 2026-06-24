@@ -2,9 +2,6 @@ const {
   getProfileByUserId,
   updateProfile,
 } = require("../repositories/profile.repository");
-const {
-  findUserByMobile,
-} = require("../../auth/repositories/auth.repository");
 const pool = require("../../../config/postgre");
 
 async function getUserProfile(userId) {
@@ -29,7 +26,23 @@ async function updateUserProfile(
     throw new Error("User not found");
   }
 
-  // Check if users table needs updates (full_name, mobile_number)
+  if (existingProfile.kyc_status === "APPROVED") {
+    const identityDocumentEdit = ["pan_full_name", "pan_number", "aadhaar_number"]
+      .some((field) => incomingData[field] !== undefined);
+    const protectedProfileEdit = ["full_name", "father_name", "date_of_birth", "dob"]
+      .some((field) => {
+        if (incomingData[field] === undefined) return false;
+        const storedField = field === "date_of_birth" ? "dob" : field;
+        const incoming = String(incomingData[field]).slice(0, 10);
+        const stored = String(existingProfile[storedField] ?? "").slice(0, 10);
+        return incoming !== stored;
+      });
+    if (identityDocumentEdit || protectedProfileEdit) {
+      throw new Error("Verified identity fields cannot be modified after KYC approval");
+    }
+  }
+
+  // Registered email/mobile are intentionally not accepted by this endpoint.
   const userUpdates = [];
   const userValues = [];
   let paramIndex = 1;
@@ -50,17 +63,6 @@ async function updateUserProfile(
     userValues.push(
       incomingData.full_name
     );
-  }
-
-  if (incomingData.mobile_number && incomingData.mobile_number !== existingProfile.mobile_number) {
-    // Check if new mobile number is already taken
-    const existingMobile = await findUserByMobile(incomingData.mobile_number);
-    if (existingMobile && existingMobile.user_id !== userId) {
-      throw new Error("Mobile number is already registered to another account");
-    }
-    userUpdates.push(`mobile_number = $${paramIndex++}`);
-    userUpdates.push(`is_mobile_verified = FALSE`);
-    userValues.push(incomingData.mobile_number);
   }
 
   if (userUpdates.length > 0) {
@@ -123,12 +125,53 @@ async function updateUserProfile(
     pincode:
       incomingData.pincode ??
       existingProfile.pincode,
+
+    marital_status:
+      incomingData.marital_status ??
+      existingProfile.marital_status,
   };
 
   await updateProfile(
     userId,
     mergedProfile
   );
+
+  const bankFields = ["bank_name", "bank_account_number", "bank_ifsc", "account_holder"];
+  if (bankFields.some((field) => incomingData[field] !== undefined)) {
+    await pool.query(
+      `
+        UPDATE bank_accounts
+        SET bank_name = COALESCE($1, bank_name),
+            account_number = COALESCE($2, account_number),
+            ifsc_code = COALESCE($3, ifsc_code),
+            account_holder = COALESCE($4, account_holder),
+            updated_at = NOW()
+        WHERE user_id = $5
+      `,
+      [
+        incomingData.bank_name,
+        incomingData.bank_account_number,
+        incomingData.bank_ifsc,
+        incomingData.account_holder,
+        userId,
+      ]
+    );
+  }
+
+  if (incomingData.pan_full_name || incomingData.pan_number) {
+    await pool.query(
+      `UPDATE pan_details
+       SET pan_name = COALESCE($1, pan_name), pan_number = COALESCE($2, pan_number), updated_at = NOW()
+       WHERE user_id = $3`,
+      [incomingData.pan_full_name, incomingData.pan_number, userId]
+    );
+  }
+  if (incomingData.aadhaar_number) {
+    await pool.query(
+      `UPDATE aadhaar_details SET aadhaar_number = $1, updated_at = NOW() WHERE user_id = $2`,
+      [incomingData.aadhaar_number, userId]
+    );
+  }
 
   return getProfileByUserId(userId);
 }

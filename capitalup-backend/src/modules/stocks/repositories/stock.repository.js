@@ -15,14 +15,31 @@ async function searchStocks(
         exchange,
         instrument_type,
         sector
+
       FROM stocks
+
       WHERE
-        LOWER(symbol) LIKE LOWER($1)
-        OR
-        LOWER(company_name) LIKE LOWER($1)
+        is_active = TRUE
+        AND (
+          symbol ILIKE $1
+          OR
+          company_name ILIKE $1
+        )
+
+      ORDER BY
+        CASE
+          WHEN symbol ILIKE $2 THEN 1
+          WHEN company_name ILIKE $2 THEN 2
+          ELSE 3
+        END,
+        company_name ASC
+
       LIMIT 10
       `,
-      [`%${query}%`]
+      [
+        `%${query}%`,
+        `${query}%`,
+      ]
     );
 
   return result.rows;
@@ -36,7 +53,9 @@ async function findStockBySymbol(
       `
       SELECT *
       FROM stocks
-      WHERE symbol = $1
+      WHERE
+        symbol = $1
+        AND is_active = TRUE
       `,
       [symbol]
     );

@@ -42,6 +42,17 @@ async function submitKycDetails(
       bank_ifsc,
       bank_name,
       account_holder,
+      date_of_birth,
+      gender,
+      marital_status,
+      father_name,
+      mother_name,
+      occupation,
+      annual_income,
+      address,
+      city,
+      state,
+      pincode,
     } = req.body;
 
     const kyc =
@@ -54,6 +65,19 @@ async function submitKycDetails(
         bankIfsc: bank_ifsc,
         bankName: bank_name,
         accountHolder: account_holder,
+        profile: {
+          dob: date_of_birth,
+          gender,
+          maritalStatus: marital_status,
+          fatherName: father_name,
+          motherName: mother_name,
+          occupation,
+          income: annual_income,
+          address,
+          city,
+          state,
+          pincode,
+        },
       });
 
     return res.status(201).json({

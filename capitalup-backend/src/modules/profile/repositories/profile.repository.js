@@ -20,12 +20,16 @@ async function getProfileByUserId(userId) {
       p.address,
       p.city,
       p.state,
-      p.pincode
+      p.pincode,
+      p.marital_status,
+      k.kyc_status
 
     FROM users u
 
     LEFT JOIN user_profile p
       ON u.user_id = p.user_id
+
+    LEFT JOIN kyc k ON u.user_id = k.user_id
 
     WHERE u.user_id = $1
   `;
@@ -54,6 +58,7 @@ async function updateProfile(
     city,
     state,
     pincode,
+    marital_status,
   } = profileData;
 
   const query = `
@@ -69,10 +74,11 @@ async function updateProfile(
       address,
       city,
       state,
-      pincode
+      pincode,
+      marital_status
     )
     VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
     )
 
     ON CONFLICT (user_id)
@@ -89,6 +95,7 @@ async function updateProfile(
       city = EXCLUDED.city,
       state = EXCLUDED.state,
       pincode = EXCLUDED.pincode,
+      marital_status = EXCLUDED.marital_status,
       updated_at = NOW()
 
     RETURNING *;
@@ -109,6 +116,7 @@ async function updateProfile(
       city,
       state,
       pincode,
+      marital_status,
     ]
   );
 

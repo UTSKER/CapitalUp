@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS portfolio_holdings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    user_id UUID NOT NULL,
+    user_id BIGINT NOT NULL,
 
     symbol VARCHAR(50) NOT NULL,
 
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS portfolio_holdings (
 
     CONSTRAINT fk_portfolio_user
         FOREIGN KEY (user_id)
-        REFERENCES users(id)
+        REFERENCES users(user_id)
         ON DELETE CASCADE,
 
     CONSTRAINT unique_portfolio_user_symbol

@@ -9,6 +9,7 @@ import { MarketCards } from './components/MarketCards';
 import { PositionsTable } from './components/PositionsTable';
 import { WatchlistPanel } from './components/WatchlistPanel';
 import { KycVerification } from './components/KycVerification';
+import { PersonalInformation } from './components/PersonalInformation';
 
 const riskMetrics = [
   { label: 'Beta (1Y)', value: '0.94', neutral: true },
@@ -25,6 +26,7 @@ const recentActivity = [
 ];
 
 function getTabFromPath(pathname) {
+  if (pathname.endsWith('/personal-information')) return 'personal-information';
   if (pathname.startsWith('/user/')) return 'profile';
 
   const [, section, tab] = pathname.split('/');
@@ -46,7 +48,9 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 
   const changeTab = (tab) => {
-    const path = tab === 'profile' || tab === 'settings'
+    const path = tab === 'personal-information'
+      ? `/user/${userId}/personal-information`
+      : tab === 'profile' || tab === 'settings'
       ? `/user/${userId}`
       : tab === 'overview'
         ? '/dashboard'
@@ -363,6 +367,10 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}>
               <KycVerification />
+            </motion.div>
+          ) : activeTab === 'personal-information' ? (
+            <motion.div key="personal-information" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <PersonalInformation />
             </motion.div>
           ) : activeTab === 'profile' || activeTab === 'settings' ? (
             <motion.div

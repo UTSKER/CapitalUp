@@ -23,7 +23,7 @@ async function buyStock({
   symbol,
   quantity,
   price,
-}) {
+}, dbClient) {
   const stock =
     await findStockBySymbol(symbol);
 
@@ -36,7 +36,8 @@ async function buyStock({
   const existingHolding =
     await findHoldingBySymbol(
       userId,
-      symbol
+      symbol,
+      dbClient
     );
 
   if (!existingHolding) {
@@ -45,7 +46,7 @@ async function buyStock({
       symbol,
       quantity,
       averageBuyPrice: price,
-    });
+    }, dbClient);
   }
 
   const oldQuantity =
@@ -72,18 +73,19 @@ async function buyStock({
     quantity: newQuantity,
     averageBuyPrice:
       newAveragePrice,
-  });
+  }, dbClient);
 }
 
 async function sellStock({
   userId,
   symbol,
   quantity,
-}) {
+}, dbClient) {
   const holding =
     await findHoldingBySymbol(
       userId,
-      symbol
+      symbol,
+      dbClient
     );
 
   if (!holding) {
@@ -110,7 +112,8 @@ async function sellStock({
   ) {
     return deleteHolding(
       userId,
-      symbol
+      symbol,
+      dbClient
     );
   }
 
@@ -120,7 +123,7 @@ async function sellStock({
       remainingQuantity,
     averageBuyPrice:
       holding.average_buy_price,
-  });
+  }, dbClient);
 }
 
 async function getPortfolio(

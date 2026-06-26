@@ -9,9 +9,9 @@ async function createOrder({
   quantity,
   price,
   status,
-}) {
+}, db = pool) {
   const result =
-    await pool.query(
+    await db.query(
       `
       INSERT INTO orders (
         user_id,

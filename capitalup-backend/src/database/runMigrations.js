@@ -10,10 +10,12 @@ async function runMigration() {
   // "004_create_kyc_documents_table.sql",
    // "005_create_watchlists_table.sql",
    // "006_create_stocks_table.sql",
-    "007_create_portfolio_holdings_table.sql",
-   "008_create_orders_table.sql",
+    //"007_create_portfolio_holdings_table.sql",
+   //"008_create_orders_table.sql",
    //"009_add_profile_marital_status.sql",
-   //"010_create_limit_orders_table.sql"
+   //"010_create_limit_orders_table.sql",
+   //"011_create_notifications_table.sql",
+   "012_add_stock_market_data_columns.sql"
   ];
 
   for (const file of files) {

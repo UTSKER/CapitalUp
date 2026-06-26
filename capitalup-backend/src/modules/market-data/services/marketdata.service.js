@@ -11,6 +11,12 @@ const {
   "../../stocks/services/stock.service"
 );
 
+const {
+  processMarketPriceForLimitOrders,
+} = require(
+  "../../limit-order/services/limitOrder.service"
+);
+
 async function refreshMarketData() {
   const symbols =
     await getActiveSymbols();
@@ -41,8 +47,14 @@ async function refreshMarketData() {
         stockData
       );
 
+      const trades =
+        await processMarketPriceForLimitOrders(
+          symbol,
+          stockData.price
+        );
+
       console.log(
-        `Updated ${symbol}`
+        `Updated ${symbol}; executed ${trades.length} limit orders`
       );
     } catch (error) {
       console.error(

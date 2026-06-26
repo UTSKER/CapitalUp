@@ -4,10 +4,11 @@ const pool = require(
 
 async function findHoldingBySymbol(
   userId,
-  symbol
+  symbol,
+  db = pool
 ) {
   const result =
-    await pool.query(
+    await db.query(
       `
       SELECT *
       FROM portfolio_holdings
@@ -25,9 +26,9 @@ async function createHolding({
   symbol,
   quantity,
   averageBuyPrice,
-}) {
+}, db = pool) {
   const result =
-    await pool.query(
+    await db.query(
       `
       INSERT INTO portfolio_holdings (
         user_id,
@@ -58,9 +59,9 @@ async function updateHolding({
   holdingId,
   quantity,
   averageBuyPrice,
-}) {
+}, db = pool) {
   const result =
-    await pool.query(
+    await db.query(
       `
       UPDATE portfolio_holdings
       SET
@@ -82,10 +83,11 @@ async function updateHolding({
 
 async function deleteHolding(
   userId,
-  symbol
+  symbol,
+  db = pool
 ) {
   const result =
-    await pool.query(
+    await db.query(
       `
       DELETE FROM portfolio_holdings
       WHERE user_id = $1

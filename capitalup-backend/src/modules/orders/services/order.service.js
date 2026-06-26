@@ -2,6 +2,10 @@ const redisClient = require(
   "../../../config/redis"
 );
 
+const {createNotification} = require(
+  "../../notification/services/notification.service"
+);
+
 const {
   createOrder,
   getOrdersByUser,
@@ -58,6 +62,12 @@ async function placeOrder({
       quantity,
       price,
     });
+
+    await createNotification({
+      userId,
+      title: "Order Executed",
+      message: `Your order to buy ${quantity} shares of ${symbol} at ₹${price} has been executed.`,
+    });
   }
 
   if (side === "SELL") {
@@ -65,6 +75,12 @@ async function placeOrder({
       userId,
       symbol,
       quantity,
+    });
+
+    await createNotification({
+      userId,
+      title: "Order Executed",
+      message : `Your order to sell ${quantity} shares of ${symbol} at ₹${price} has been executed.`,
     });
   }
 

@@ -13,9 +13,15 @@ CREATE TABLE IF NOT EXISTS limit_orders (
 
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
 
+    validity VARCHAR(10) NOT NULL DEFAULT 'DAY',
+
+    executed_price NUMERIC(12,2),
+
     created_at TIMESTAMP DEFAULT NOW(),
 
     executed_at TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT NOW(),
 
     CONSTRAINT fk_limit_order_user
         FOREIGN KEY (user_id)

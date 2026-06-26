@@ -6,8 +6,15 @@ const pool = require("./config/postgre");
 
 const {
   startMarketDataJob,
+  startDayOrderExpiryJob,
 } = require(
   "./modules/market-data/jobs/marketdata.job"
+);
+
+const {
+  loadPendingLimitOrdersIntoMatchingEngine,
+} = require(
+  "./modules/limit-order/services/limitOrder.service"
 );
 
 const PORT = process.env.PORT || 3000;
@@ -86,10 +93,18 @@ async function startServer() {
       );
     }
 
-    startMarketDataJob();
+    const restoredLimitOrders =
+      await loadPendingLimitOrdersIntoMatchingEngine();
 
     console.log(
-      "Market Data Job Started"
+      `Matching Engine restored ${restoredLimitOrders} pending limit orders`
+    );
+
+    startMarketDataJob();
+    startDayOrderExpiryJob();
+
+    console.log(
+      "Market Data Jobs Started"
     );
 
     app.listen(PORT, () => {

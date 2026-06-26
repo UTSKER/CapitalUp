@@ -86,4 +86,12 @@ app.use(
   limitorderRoutes
 );
 
+// notifications route
+app.use(
+  "/notifications",
+  require(
+    "./modules/notification/routes/notification.routes"
+  )
+);
+
 module.exports = app;

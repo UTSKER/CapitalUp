@@ -141,9 +141,23 @@ async function updateStockMarketData(
   );
 }
 
+async function getAllActiveStocks() {
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM stocks
+    WHERE is_active = TRUE
+    ORDER BY symbol ASC
+    `
+  );
+
+  return result.rows.map(mapStockRow);
+}
+
 module.exports = {
   searchStocks,
   findStockBySymbol,
   getTrackedStockSymbols,
   updateStockMarketData,
+  getAllActiveStocks,
 };

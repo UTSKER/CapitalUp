@@ -107,6 +107,26 @@ async function placeLimitOrder(
     );
   }
 
+  const cachedPrice = await redisClient.get(`stock:${symbol}`);
+  if (!cachedPrice) {
+    throw new Error("Live price not available for this symbol");
+  }
+  const parsedPrice = JSON.parse(cachedPrice);
+  const currentPrice = Number(parsedPrice.price);
+  const lowerPriceBound = currentPrice * 0.75;
+  const upperPriceBound = currentPrice * 1.25;
+  if (limitPrice < lowerPriceBound || limitPrice > upperPriceBound) {
+    throw new Error(
+      `Limit price must be within ±25% of current price (₹${lowerPriceBound.toFixed(2)} - ₹${upperPriceBound.toFixed(2)})`
+    );
+  }
+
+  if (side === "BUY" && limitPrice > currentPrice) {
+    throw new Error(
+      `Limit price for buying cannot be greater than the current market price (₹${currentPrice.toFixed(2)})`
+    );
+  }
+
   if (side === "SELL") {
     const holding =
       await findHoldingBySymbol(

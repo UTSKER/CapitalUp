@@ -1,5 +1,6 @@
 const {
   saveStockData,
+  appendStockHistory,
 } = require(
   "../repositories/marketdata.repository"
 );
@@ -47,6 +48,15 @@ async function refreshMarketData() {
         symbol,
         stockData
       );
+
+      try {
+        await appendStockHistory(symbol, {
+          price: stockData.price,
+          timestamp: stockData.updatedAt,
+        });
+      } catch (histError) {
+        console.error(`Failed to append history for ${symbol}:`, histError.message);
+      }
 
       try {
         await updateStockMarketData(symbol, stockData);

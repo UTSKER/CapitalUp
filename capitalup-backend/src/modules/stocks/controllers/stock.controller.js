@@ -1,6 +1,8 @@
 const {
   searchStocks,
   getStockPrice,
+  getAllStocks,
+  getStockHistory,
 } = require("../services/stock.service");
 
 async function search(req, res) {
@@ -57,7 +59,42 @@ async function getQuote(req, res) {
   }
 }
 
+async function getAll(req, res) {
+  try {
+    const stocks = await getAllStocks();
+    return res.status(200).json({
+      success: true,
+      data: stocks,
+    });
+  } catch (error) {
+    console.error("Get All Stocks Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+async function getHistory(req, res) {
+  try {
+    const { symbol } = req.params;
+    const history = await getStockHistory(symbol);
+    return res.status(200).json({
+      success: true,
+      data: history,
+    });
+  } catch (error) {
+    console.error("Get History Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   search,
   getQuote,
+  getAll,
+  getHistory,
 };

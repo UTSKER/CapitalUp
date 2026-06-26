@@ -17,6 +17,13 @@ const navItems = [
 export function Sidebar({ activeTab, onTabChange, onNavigate }) {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('capitalup-user') || '{}'));
   const [kycStatus, setKycStatus] = useState(() => localStorage.getItem('capitalup-kyc-status') || 'NOT_STARTED');
+  
+  const [cashBalance, setCashBalance] = useState(() => {
+    return Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+  });
+  const [portfolioValue, setPortfolioValue] = useState(0);
+  const [dayGain, setDayGain] = useState(0);
+  const [dayGainPercent, setDayGainPercent] = useState(0);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -24,9 +31,50 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
       setUser(JSON.parse(localStorage.getItem('capitalup-user') || '{}'));
     };
     window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(handleStorageChange, 1000);
+    
+    const fetchPortfolio = async () => {
+      const activeToken = localStorage.getItem('capitalup-access-token');
+      if (!activeToken) return;
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/portfolio`, {
+          headers: { Authorization: `Bearer ${activeToken}` }
+        });
+        const result = await res.json();
+        if (res.ok) {
+          const cash = Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+          const holdingsVal = Number(result.data?.summary?.current_value || 0);
+          const totalVal = cash + holdingsVal;
+          setPortfolioValue(totalVal);
+          
+          const invested = Number(result.data?.summary?.total_invested || 0);
+          const profitLoss = holdingsVal - invested;
+          setDayGain(profitLoss);
+          setDayGainPercent(invested > 0 ? (profitLoss / invested) * 100 : 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch sidebar portfolio:', err);
+      }
+    };
+
+    fetchPortfolio();
+
+    const handleBalanceChanged = () => {
+      setCashBalance(Number(localStorage.getItem('capitalup-cash-balance') || 10000));
+      fetchPortfolio();
+    };
+
+    window.addEventListener('balanceChanged', handleBalanceChanged);
+    window.addEventListener('holdingsChanged', fetchPortfolio);
+
+    const interval = setInterval(() => {
+      handleStorageChange();
+      fetchPortfolio();
+    }, 6000);
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('balanceChanged', handleBalanceChanged);
+      window.removeEventListener('holdingsChanged', fetchPortfolio);
       clearInterval(interval);
     };
   }, []);
@@ -121,18 +169,42 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
       <div
         style={{
           padding: '16px 16px 12px',
-          borderBottom: '1px solid var(--color-white-0.05)'
+          borderBottom: '1px solid var(--color-white-0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
         }}>
         
-        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
-          Portfolio Value
+        <div>
+          <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            Portfolio Value
+          </div>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '16px', fontWeight: 500, color: 'var(--color-text-main)', marginBottom: '3px' }}>
+            ₹{portfolioValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: dayGain >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
+              {dayGain >= 0 ? '+' : ''}₹{dayGain.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </span>
+            <span style={{
+              fontSize: '9px',
+              color: dayGain >= 0 ? 'var(--color-success)' : 'var(--color-error)',
+              background: dayGain >= 0 ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)',
+              padding: '1px 4px',
+              borderRadius: '4px'
+            }}>
+              {dayGain >= 0 ? '+' : ''}{dayGainPercent.toFixed(2)}%
+            </span>
+          </div>
         </div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 500, color: 'var(--color-text-main)', marginBottom: '3px' }}>
-          $2,847,392
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: 'var(--color-success)' }}>+$24,839</span>
-          <span style={{ fontSize: '10px', color: 'var(--color-success)', background: 'var(--color-success-0.1)', padding: '1px 5px', borderRadius: '4px' }}>+0.88%</span>
+
+        <div style={{ borderTop: '1px dashed var(--color-white-0.08)', paddingTop: '10px' }}>
+          <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            Available Cash
+          </div>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-main)' }}>
+            ₹{cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
         </div>
       </div>
 

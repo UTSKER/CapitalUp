@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Bell, Search, ChevronDown, ArrowUpRight, ShieldCheck, LogOut, User as UserIcon } from 'lucide-react';
+import { Bell, Search, ChevronDown, ArrowUpRight, ArrowDownRight, ShieldCheck, LogOut, User as UserIcon, BarChart3 } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { ProfileSettings } from './components/ProfileSettings';
 import { PortfolioChart } from './components/PortfolioChart';
@@ -10,6 +10,8 @@ import { PositionsTable } from './components/PositionsTable';
 import { WatchlistPanel } from './components/WatchlistPanel';
 import { KycVerification } from './components/KycVerification';
 import { PersonalInformation } from './components/PersonalInformation';
+import { MarketsView } from './components/MarketsView';
+import { OrdersView } from './components/OrdersView';
 
 const riskMetrics = [
   { label: 'Beta (1Y)', value: '0.94', neutral: true },
@@ -30,11 +32,14 @@ function getTabFromPath(pathname) {
   if (pathname.startsWith('/user/')) return 'profile';
 
   const [, section, tab] = pathname.split('/');
-  if (section !== 'dashboard') return 'overview';
-  return tab || 'overview';
+  if (section !== 'dashboard') return 'markets';
+  return tab || 'markets';
 }
 
 export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+  const token = localStorage.getItem('capitalup-access-token');
+
   const user = JSON.parse(localStorage.getItem('capitalup-user') || '{}');
   const fullName = user.full_name || 'James Dornan';
   const firstName = fullName.split(' ')[0] || 'James';
@@ -44,6 +49,74 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   const [activeTab, setActiveTab] = useState(() => getTabFromPath(window.location.pathname));
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [stocks, setStocks] = useState([]);
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [initialOrderSide, setInitialOrderSide] = useState('BUY');
+
+  const [portfolioValue, setPortfolioValue] = useState(0);
+
+  const fetchStocks = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/stocks`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const result = await res.json();
+      if (result.success) {
+        setStocks(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch stocks in dashboard:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchStocks();
+  }, [API_BASE_URL, token]);
+
+  const handleSelectStock = (stock, side) => {
+    setSelectedStock(stock);
+    if (side) {
+      setInitialOrderSide(side);
+    }
+    changeTab('markets');
+  };
+  const [dayGain, setDayGain] = useState(0);
+  const [dayGainPercent, setDayGainPercent] = useState(0);
+
+  const fetchPortfolioData = async () => {
+    const activeToken = localStorage.getItem('capitalup-access-token');
+    if (!activeToken) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/portfolio`, {
+        headers: { Authorization: `Bearer ${activeToken}` }
+      });
+      const result = await res.json();
+      if (res.ok) {
+        const cash = Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+        const holdingsVal = Number(result.data?.summary?.current_value || 0);
+        setPortfolioValue(cash + holdingsVal);
+
+        const invested = Number(result.data?.summary?.total_invested || 0);
+        const profitLoss = holdingsVal - invested;
+        setDayGain(profitLoss);
+        setDayGainPercent(invested > 0 ? (profitLoss / invested) * 100 : 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard portfolio info:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPortfolioData();
+    window.addEventListener('balanceChanged', fetchPortfolioData);
+    window.addEventListener('holdingsChanged', fetchPortfolioData);
+    return () => {
+      window.removeEventListener('balanceChanged', fetchPortfolioData);
+      window.removeEventListener('holdingsChanged', fetchPortfolioData);
+    };
+  }, []);
   const [notifications, setNotifications] = useState(3);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 
@@ -52,9 +125,9 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
       ? `/user/${userId}/personal-information`
       : tab === 'profile' || tab === 'settings'
       ? `/user/${userId}`
-      : tab === 'overview'
-        ? '/dashboard'
-        : `/dashboard/${tab}`;
+      : tab === 'markets'
+      ? '/dashboard'
+      : `/dashboard/${tab}`;
 
     if (window.location.pathname !== path) {
       window.history.pushState({}, '', path);
@@ -380,102 +453,258 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               transition={{ duration: 0.5 }}>
               <ProfileSettings currentTheme={currentTheme} onChangeTheme={onChangeTheme} />
             </motion.div>
+          ) : activeTab === 'markets' ? (
+            <motion.div
+              key="markets-view"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <MarketsView 
+                onNavigate={onNavigate} 
+                stocks={stocks}
+                selectedStock={selectedStock}
+                setSelectedStock={setSelectedStock}
+                initialOrderSide={initialOrderSide}
+                setInitialOrderSide={setInitialOrderSide}
+              />
+            </motion.div>
+          ) : activeTab === 'orders' ? (
+            <motion.div
+              key="orders-view"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <OrdersView />
+            </motion.div>
+          ) : activeTab === 'overview' ? (
+            <motion.div
+              key="dashboard-overview"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <div style={{ marginBottom: '24px' }}>
+                <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                  Market Overview
+                </h1>
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <MarketCards />
+              </div>
+              <div style={{
+                background: 'var(--color-bg-panel-0.6)',
+                border: '1px solid var(--color-white-0.07)',
+                borderRadius: '14px',
+                padding: '40px',
+                textAlign: 'center',
+                boxShadow: '0 8px 32px var(--color-black-0.2)'
+              }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'var(--color-accent-0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                  border: '1px solid var(--color-accent-0.2)'
+                }}>
+                  <Bell size={24} color="var(--color-accent)" />
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '8px' }}>
+                  AI Financial Insights & News
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', maxWidth: '460px', margin: '0 auto 24px', lineHeight: 1.6 }}>
+                  Our AI engine is currently analyzing global sentiment, real-time news, and earnings reports to deliver personalized trading ideas. This feature will be live soon!
+                </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--color-white-0.04)', padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--color-white-0.08)' }}>
+                  <ShieldCheck size={14} color="var(--color-success)" />
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-sub)' }}>Analyzing 250+ global sources</span>
+                </div>
+              </div>
+            </motion.div>
+          ) : activeTab === 'portfolio' ? (
+            <motion.div
+              key="dashboard-portfolio"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>
+                  Good morning, {firstName} — Tuesday, June 2, 2026
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
+                  <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                    Portfolio Holdings
+                  </h1>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: dayGain >= 0 ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)', border: `1px solid ${dayGain >= 0 ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`, borderRadius: '6px', padding: '4px 10px' }}>
+                    {dayGain >= 0 ? <ArrowUpRight size={13} color="var(--color-success)" /> : <ArrowDownRight size={13} color="var(--color-error)" />}
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: dayGain >= 0 ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>
+                      ₹{portfolioValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · {dayGain >= 0 ? '+' : ''}{dayGainPercent.toFixed(2)}% today
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <PositionsTable stocks={stocks} onSelectStock={handleSelectStock} />
+              </div>
+            </motion.div>
+          ) : activeTab === 'watchlist' ? (
+            <motion.div
+              key="dashboard-watchlist"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <div style={{ marginBottom: '24px' }}>
+                <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                  My Watchlist
+                </h1>
+              </div>
+              <div style={{ maxWidth: '800px', margin: '0 auto', height: '600px' }}>
+                <WatchlistPanel />
+              </div>
+            </motion.div>
+          ) : activeTab === 'research' ? (
+            <motion.div
+              key="dashboard-research"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <div style={{ marginBottom: '24px' }}>
+                <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                  Research Terminal
+                </h1>
+              </div>
+              <div style={{
+                background: 'var(--color-bg-panel-0.6)',
+                border: '1px solid var(--color-white-0.07)',
+                borderRadius: '14px',
+                padding: '40px',
+                textAlign: 'center',
+                boxShadow: '0 8px 32px var(--color-black-0.2)'
+              }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'var(--color-accent-0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                  border: '1px solid var(--color-accent-0.2)'
+                }}>
+                  <Search size={24} color="var(--color-accent)" />
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '8px' }}>
+                  Professional Stock Research & Analysis
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', maxWidth: '460px', margin: '0 auto 24px', lineHeight: 1.6 }}>
+                  Access premium equity research report analysis, valuations, analyst consensus targets, and company financial statements. This feature will be live soon!
+                </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--color-white-0.04)', padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--color-white-0.08)' }}>
+                  <ShieldCheck size={14} color="var(--color-success)" />
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-sub)' }}>Covering NSE & BSE listed equities</span>
+                </div>
+              </div>
+            </motion.div>
+          ) : activeTab === 'analytics' ? (
+            <motion.div
+              key="dashboard-analytics"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <div style={{ marginBottom: '24px' }}>
+                <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                  Analytics Dashboard
+                </h1>
+              </div>
+              <div style={{
+                background: 'var(--color-bg-panel-0.6)',
+                border: '1px solid var(--color-white-0.07)',
+                borderRadius: '14px',
+                padding: '40px',
+                textAlign: 'center',
+                boxShadow: '0 8px 32px var(--color-black-0.2)'
+              }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'var(--color-accent-0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                  border: '1px solid var(--color-accent-0.2)'
+                }}>
+                  <BarChart3 size={24} color="var(--color-accent)" />
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '8px' }}>
+                  Advanced Portfolio Analytics & Risk Analysis
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', maxWidth: '460px', margin: '0 auto 24px', lineHeight: 1.6 }}>
+                  Understand your portfolio volatility, calculate beta exposures, Sharpe ratios, drawdowns, and analyze performance attribution. This feature will be live soon!
+                </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--color-white-0.04)', padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--color-white-0.08)' }}>
+                  <ShieldCheck size={14} color="var(--color-success)" />
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-sub)' }}>Real-time statistics</span>
+                </div>
+              </div>
+            </motion.div>
           ) : (
             <motion.div
               key="dashboard-overview"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}>
-              
-              {/* Page header */}
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>
                   Good morning, {firstName} — Tuesday, June 2, 2026
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
-                  <h1
-                    style={{
-                      fontFamily: 'EB Garamond, Georgia, serif',
-                      fontSize: '28px',
-                      fontWeight: 600,
-                      color: 'var(--color-text-main)',
-                      letterSpacing: '-0.2px',
-                      lineHeight: 1.2
-                    }}>
+                  <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
                     Portfolio Overview
                   </h1>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--color-success-0.1)', border: '1px solid var(--color-success-0.2)', borderRadius: '6px', padding: '4px 10px' }}>
-                    <ArrowUpRight size={13} color="var(--color-success)" />
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: 'var(--color-success)', fontWeight: 500 }}>
-                      $2,847,392.50 · +0.88% today
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: dayGain >= 0 ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)', border: `1px solid ${dayGain >= 0 ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`, borderRadius: '6px', padding: '4px 10px' }}>
+                    {dayGain >= 0 ? <ArrowUpRight size={13} color="var(--color-success)" /> : <ArrowDownRight size={13} color="var(--color-error)" />}
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: dayGain >= 0 ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>
+                      ₹{portfolioValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · {dayGain >= 0 ? '+' : ''}{dayGainPercent.toFixed(2)}% today
                     </span>
                   </div>
                 </div>
               </div>
-
-              {/* Row 1: Chart + Allocation */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', marginBottom: '20px' }} className="max-xl:grid-cols-1">
                 <PortfolioChart />
                 <AllocationChart />
               </div>
-
-              {/* Row 2: Market overview */}
               <div style={{ marginBottom: '20px' }}>
                 <MarketCards />
               </div>
-
-              {/* Row 3: Positions + Watchlist + Activity */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px' }} className="max-xl:grid-cols-1">
-                {/* Left: Positions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <PositionsTable />
-
-                  {/* Risk metrics */}
-                  <div
-                    style={{
-                      background: 'var(--color-bg-panel-0.6)',
-                      border: '1px solid var(--color-white-0.07)',
-                      borderRadius: '14px',
-                      padding: '20px 24px'
-                    }}>
-                    
+                  <PositionsTable stocks={stocks} onSelectStock={handleSelectStock} />
+                  <div style={{ background: 'var(--color-bg-panel-0.6)', border: '1px solid var(--color-white-0.07)', borderRadius: '14px', padding: '20px 24px' }}>
                     <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '16px' }}>
                       Risk Analytics
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
-                      {riskMetrics.map((m) =>
+                      {riskMetrics.map((m) => (
                         <div key={m.label}>
                           <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '5px', fontWeight: 500 }}>{m.label}</div>
-                          <div
-                            style={{
-                              fontFamily: 'JetBrains Mono, monospace',
-                              fontSize: '18px',
-                              fontWeight: 500,
-                              color: m.positive ? 'var(--color-success)' : m.negative ? 'var(--color-error)' : 'var(--color-text-main)'
-                            }}>
+                          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 500, color: m.positive ? 'var(--color-success)' : m.negative ? 'var(--color-error)' : 'var(--color-text-main)' }}>
                             {m.value}
                           </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </div>
-
-                {/* Right: Watchlist + Recent activity */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ flex: 1, minHeight: '400px' }}>
                     <WatchlistPanel />
                   </div>
-
-                  {/* Recent activity */}
-                  <div
-                    style={{
-                      background: 'var(--color-bg-panel-0.6)',
-                      border: '1px solid var(--color-white-0.07)',
-                      borderRadius: '14px',
-                      padding: '18px 20px'
-                    }}>
-                    
+                  <div style={{ background: 'var(--color-bg-panel-0.6)', border: '1px solid var(--color-white-0.07)', borderRadius: '14px', padding: '18px 20px' }}>
                     <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '14px' }}>
                       Recent Activity
                     </div>
@@ -486,28 +715,9 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                         const typeColor = isBuy ? 'var(--color-accent)' : isDiv ? 'var(--color-success)' : 'var(--color-error)';
                         const typeBg = isBuy ? 'var(--color-accent-0.1)' : isDiv ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)';
                         return (
-                          <div
-                            key={idx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '8px'
-                            }}>
-                            
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span
-                                style={{
-                                  fontSize: '9px',
-                                  fontWeight: 700,
-                                  color: typeColor,
-                                  background: typeBg,
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  letterSpacing: '0.05em',
-                                  minWidth: '30px',
-                                  textAlign: 'center'
-                                }}>
+                              <span style={{ fontSize: '9px', fontWeight: 700, color: typeColor, background: typeBg, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.05em', minWidth: '30px', textAlign: 'center' }}>
                                 {act.type}
                               </span>
                               <div>

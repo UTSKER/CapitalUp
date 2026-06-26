@@ -8,7 +8,6 @@ const {
 );
 
 const {
-  addActiveSymbol,
   getStockData,
 } = require(
   "../../market-data/repositories/marketdata.repository"
@@ -30,7 +29,7 @@ async function addStock(
     );
   }
 
-  await addActiveSymbol(symbol);
+
 
   return addStockToWatchlist(
     userId,

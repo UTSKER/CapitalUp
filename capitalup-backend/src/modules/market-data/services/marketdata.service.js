@@ -1,5 +1,4 @@
 const {
-  getActiveSymbols,
   saveStockData,
 } = require(
   "../repositories/marketdata.repository"
@@ -17,9 +16,15 @@ const {
   "../../limit-order/services/limitOrder.service"
 );
 
+const {
+  getTrackedStockSymbols,
+  updateStockMarketData,
+} = require(
+  "../../stocks/repositories/stock.repository"
+);
+
 async function refreshMarketData() {
-  const symbols =
-    await getActiveSymbols();
+  const symbols = await getTrackedStockSymbols();
 
   if (!symbols.length) {
     console.log(
@@ -34,24 +39,28 @@ async function refreshMarketData() {
 
   for (const symbol of symbols) {
     try {
-      const stockData =
-        await getStockPrice(
-          symbol
-        );
+      const stockData = await getStockPrice(symbol);
 
-      stockData.updatedAt =
-        new Date().toISOString();
+      stockData.updatedAt = new Date().toISOString();
 
       await saveStockData(
         symbol,
         stockData
       );
 
-      const trades =
-        await processMarketPriceForLimitOrders(
-          symbol,
-          stockData.price
+      try {
+        await updateStockMarketData(symbol, stockData);
+      } catch (dbError) {
+        console.error(
+          `Failed to update stock price in DB for ${symbol}:`,
+          dbError.message
         );
+      }
+
+      const trades = await processMarketPriceForLimitOrders(
+        symbol,
+        stockData.price
+      );
 
       console.log(
         `Updated ${symbol}; executed ${trades.length} limit orders`

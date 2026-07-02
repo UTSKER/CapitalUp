@@ -1,4 +1,4 @@
-const redisClient = require(
+const {redisClient} = require(
   "../../../config/redis"
 );
 

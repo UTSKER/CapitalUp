@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy_client_id');
 
-const redisClient = require("../../../config/redis");
+const {redisClient} = require("../../../config/redis");
 const {
   storeVerificationToken,
   storeRefreshToken,

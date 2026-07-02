@@ -1,4 +1,4 @@
-const redisClient = require(
+const {redisClient} = require(
   "../../../config/redis"
 );
 
@@ -10,6 +10,7 @@ async function saveStockData(
     `stock:${symbol}`,
     JSON.stringify(stockData)
   );
+
 }
 
 async function getStockData(

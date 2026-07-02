@@ -9,6 +9,8 @@ const authenticate = require(
   "../../../middlewares/auth.middleware"
 );
 
+const { publisher } = require("../../../config/redis");
+
 const validate = require(
   "../../../middlewares/validate.middleware"
 );

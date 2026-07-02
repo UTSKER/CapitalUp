@@ -14,7 +14,7 @@ const {
   "../../stocks/repositories/stock.repository"
 );
 
-const redisClient = require(
+const {redisClient} = require(
   "../../../config/redis"
 );
 

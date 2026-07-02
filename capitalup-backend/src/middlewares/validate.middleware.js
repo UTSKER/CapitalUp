@@ -23,7 +23,7 @@ function validate(schema) {
   };
 }
 
-const redisClient = require("../config/redis");
+const {redisClient} = require("../config/redis");
 
 const otpRateLimits = {
   send: {

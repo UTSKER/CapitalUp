@@ -1,42 +1,32 @@
 const {
   saveStockData,
   appendStockHistory,
-} = require(
-  "../repositories/marketdata.repository"
-);
+} = require("../repositories/marketdata.repository");
 
 const {
   getStockPrice,
-} = require(
-  "../../stocks/services/stock.service"
-);
+} = require("../../stocks/services/stock.service");
 
 const {
   processMarketPriceForLimitOrders,
-} = require(
-  "../../limit-order/services/limitOrder.service"
-);
+} = require("../../limit-order/services/limitOrder.service");
 
 const {
   getTrackedStockSymbols,
   updateStockMarketData,
-} = require(
-  "../../stocks/repositories/stock.repository"
-);
+} = require("../../stocks/repositories/stock.repository");
+
+const { publisher } = require("../../../config/redis");
 
 async function refreshMarketData() {
   const symbols = await getTrackedStockSymbols();
 
   if (!symbols.length) {
-    console.log(
-      "No active symbols found"
-    );
+    console.log("No active symbols found");
     return;
   }
 
-  console.log(
-    `Refreshing ${symbols.length} symbols`
-  );
+  console.log(`Refreshing ${symbols.length} symbols`);
 
   for (const symbol of symbols) {
     try {
@@ -44,9 +34,16 @@ async function refreshMarketData() {
 
       stockData.updatedAt = new Date().toISOString();
 
-      await saveStockData(
-        symbol,
-        stockData
+      // Save latest price in Redis
+      await saveStockData(symbol, stockData);
+
+      // Publish live update
+      await publisher.publish(
+        "market:update",
+        JSON.stringify({
+          symbol,
+          stockData,
+        })
       );
 
       try {
@@ -55,7 +52,10 @@ async function refreshMarketData() {
           timestamp: stockData.updatedAt,
         });
       } catch (histError) {
-        console.error(`Failed to append history for ${symbol}:`, histError.message);
+        console.error(
+          `Failed to append history for ${symbol}:`,
+          histError.message
+        );
       }
 
       try {

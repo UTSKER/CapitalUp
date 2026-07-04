@@ -2,7 +2,7 @@ const pool = require(
   "../../../config/postgre"
 );
 
-function mapLimitOrderRow(row) {
+function mapStopOrderRow(row) {
   if (!row) {
     return null;
   }
@@ -13,51 +13,37 @@ function mapLimitOrderRow(row) {
     symbol: row.symbol,
     side: row.side,
     quantity: row.quantity,
-    limitPrice: row.limit_price,
+    stopPrice: row.stop_price,
     status: row.status,
     validity: row.validity,
     executedPrice: row.executed_price,
+    linkedLimitOrderId: row.linked_limit_order_id,
     createdAt: row.created_at,
     executedAt: row.executed_at,
     updatedAt: row.updated_at,
   };
 }
 
-function mapLimitOrderTradeRow(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: row.id,
-    limitOrderId: row.limit_order_id,
-    userId: row.user_id,
-    symbol: row.symbol,
-    side: row.side,
-    quantity: row.quantity,
-    price: row.price,
-    createdAt: row.created_at,
-  };
-}
-
-async function createLimitOrder({
+async function createStopOrder({
   userId,
   symbol,
   side,
   quantity,
-  limitPrice,
+  stopPrice,
   validity = "DAY",
+  linkedLimitOrderId = null,
 }, db = pool) {
   const result =
     await db.query(
       `
-      INSERT INTO limit_orders (
+      INSERT INTO stop_orders (
         user_id,
         symbol,
         side,
         quantity,
-        limit_price,
-        validity
+        stop_price,
+        validity,
+        linked_limit_order_id
       )
       VALUES (
         $1,
@@ -65,7 +51,8 @@ async function createLimitOrder({
         $3,
         $4,
         $5,
-        $6
+        $6,
+        $7
       )
       RETURNING *;
       `,
@@ -74,24 +61,25 @@ async function createLimitOrder({
         symbol,
         side,
         quantity,
-        limitPrice,
+        stopPrice,
         validity,
+        linkedLimitOrderId,
       ]
     );
 
-  return mapLimitOrderRow(
+  return mapStopOrderRow(
     result.rows[0]
   );
 }
 
-async function getUserLimitOrders(
+async function getUserStopOrders(
   userId
 ) {
   const result =
     await pool.query(
       `
       SELECT *
-      FROM limit_orders
+      FROM stop_orders
       WHERE user_id = $1
       ORDER BY created_at DESC
       `,
@@ -99,11 +87,11 @@ async function getUserLimitOrders(
     );
 
   return result.rows.map(
-    mapLimitOrderRow
+    mapStopOrderRow
   );
 }
 
-async function cancelLimitOrder(
+async function cancelStopOrder(
   id,
   userId,
   db = pool
@@ -111,7 +99,7 @@ async function cancelLimitOrder(
   const result =
     await db.query(
       `
-      UPDATE limit_orders
+      UPDATE stop_orders
       SET
         status = 'CANCELLED',
         updated_at = CURRENT_TIMESTAMP
@@ -124,21 +112,21 @@ async function cancelLimitOrder(
       [id, userId]
     );
 
-  return mapLimitOrderRow(
+  return mapStopOrderRow(
     result.rows[0]
   );
 }
 
 // System-initiated cancel (OCO cascade) — ownership was validated
 // when the link was created, so no user_id filter here.
-async function cancelPendingLimitOrderById(
+async function cancelPendingStopOrderById(
   id,
   db = pool
 ) {
   const result =
     await db.query(
       `
-      UPDATE limit_orders
+      UPDATE stop_orders
       SET
         status = 'CANCELLED',
         updated_at = CURRENT_TIMESTAMP
@@ -150,12 +138,12 @@ async function cancelPendingLimitOrderById(
       [id]
     );
 
-  return mapLimitOrderRow(
+  return mapStopOrderRow(
     result.rows[0]
   );
 }
 
-async function getLimitOrderById(
+async function getStopOrderById(
   id,
   db = pool
 ) {
@@ -163,18 +151,18 @@ async function getLimitOrderById(
     await db.query(
       `
       SELECT *
-      FROM limit_orders
+      FROM stop_orders
       WHERE id = $1
       `,
       [id]
     );
 
-  return mapLimitOrderRow(
+  return mapStopOrderRow(
     result.rows[0]
   );
 }
 
-async function lockPendingLimitOrderById(
+async function lockPendingStopOrderById(
   id,
   db = pool
 ) {
@@ -182,7 +170,7 @@ async function lockPendingLimitOrderById(
     await db.query(
       `
       SELECT *
-      FROM limit_orders
+      FROM stop_orders
       WHERE
         id = $1
         AND status = 'PENDING'
@@ -191,37 +179,59 @@ async function lockPendingLimitOrderById(
       [id]
     );
 
-  return mapLimitOrderRow(
+  return mapStopOrderRow(
     result.rows[0]
   );
 }
 
-async function getPendingLimitOrders(
+async function lockPendingStopOrderByLinkedLimitId(
+  limitOrderId,
   db = pool
 ) {
   const result =
     await db.query(
       `
       SELECT *
-      FROM limit_orders
+      FROM stop_orders
+      WHERE
+        linked_limit_order_id = $1
+        AND status = 'PENDING'
+      FOR UPDATE
+      `,
+      [limitOrderId]
+    );
+
+  return mapStopOrderRow(
+    result.rows[0]
+  );
+}
+
+async function getPendingStopOrders(
+  db = pool
+) {
+  const result =
+    await db.query(
+      `
+      SELECT *
+      FROM stop_orders
       WHERE status = 'PENDING'
       ORDER BY created_at ASC
       `
     );
 
   return result.rows.map(
-    mapLimitOrderRow
+    mapStopOrderRow
   );
 }
 
-async function markLimitOrderFilled({
+async function markStopOrderFilled({
   id,
   executedPrice,
 }, db = pool) {
   const result =
     await db.query(
       `
-      UPDATE limit_orders
+      UPDATE stop_orders
       SET
         status = 'FILLED',
         executed_price = $2,
@@ -238,18 +248,18 @@ async function markLimitOrderFilled({
       ]
     );
 
-  return mapLimitOrderRow(
+  return mapStopOrderRow(
     result.rows[0]
   );
 }
 
-async function expireDayLimitOrders(
+async function expireDayStopOrders(
   db = pool
 ) {
   const result =
     await db.query(
       `
-      UPDATE limit_orders
+      UPDATE stop_orders
       SET
         status = 'EXPIRED',
         updated_at = CURRENT_TIMESTAMP
@@ -261,62 +271,51 @@ async function expireDayLimitOrders(
     );
 
   return result.rows.map(
-    mapLimitOrderRow
+    mapStopOrderRow
   );
 }
 
-async function createLimitOrderTrade({
-  tradeId,
-  limitOrderId,
-  userId,
-  symbol,
-  side,
-  quantity,
-  price,
-}, db = pool) {
-  // No-op: limit order trade persistence is not supported in current schema.
-  // Returning null to maintain function signature without database interaction.
-  return null;
-}
-
-async function getPendingSellQuantity(
-  userId,
-  symbol
+// Startup reconciliation: a linked stop whose limit leg is no longer
+// PENDING must not stay live (covers manual data drift / crashes).
+async function cancelOrphanedLinkedStopOrders(
+  db = pool
 ) {
   const result =
-    await pool.query(
+    await db.query(
       `
-      SELECT
-        COALESCE(
-          SUM(quantity),
-          0
-        ) AS reserved_quantity
-      FROM limit_orders
+      UPDATE stop_orders s
+      SET
+        status = 'CANCELLED',
+        updated_at = CURRENT_TIMESTAMP
       WHERE
-        user_id = $1
-        AND symbol = $2
-        AND side = 'SELL'
-        AND status = 'PENDING'
-      `,
-      [userId, symbol]
+        s.status = 'PENDING'
+        AND s.linked_limit_order_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM limit_orders lo
+          WHERE
+            lo.id = s.linked_limit_order_id
+            AND lo.status <> 'PENDING'
+        )
+      RETURNING *;
+      `
     );
 
-  return Number(
-    result.rows[0]
-      .reserved_quantity
+  return result.rows.map(
+    mapStopOrderRow
   );
 }
 
 module.exports = {
-  createLimitOrder,
-  getUserLimitOrders,
-  cancelLimitOrder,
-  cancelPendingLimitOrderById,
-  getPendingSellQuantity,
-  getLimitOrderById,
-  lockPendingLimitOrderById,
-  getPendingLimitOrders,
-  markLimitOrderFilled,
-  expireDayLimitOrders,
-  createLimitOrderTrade,
+  createStopOrder,
+  getUserStopOrders,
+  cancelStopOrder,
+  cancelPendingStopOrderById,
+  getStopOrderById,
+  lockPendingStopOrderById,
+  lockPendingStopOrderByLinkedLimitId,
+  getPendingStopOrders,
+  markStopOrderFilled,
+  expireDayStopOrders,
+  cancelOrphanedLinkedStopOrders,
 };

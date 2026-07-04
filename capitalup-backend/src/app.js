@@ -86,6 +86,18 @@ app.use(
   limitorderRoutes
 );
 
+// stop - orders routes
+
+const stopOrderRoutes =
+require(
+      "./modules/stop-order/routes/stopOrder.routes.js"
+);
+
+app.use(
+  "/stop-orders",
+  stopOrderRoutes
+);
+
 // notifications route
 app.use(
   "/notifications",

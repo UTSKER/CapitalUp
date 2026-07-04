@@ -1,16 +1,15 @@
 const {
-  createLimitOrder,
-  getUserLimitOrders,
-  cancelLimitOrder,
-  getPendingSellQuantity,
-  getLimitOrderById,
-  lockPendingLimitOrderById,
-  getPendingLimitOrders,
-  markLimitOrderFilled,
-  expireDayLimitOrders,
-  createLimitOrderTrade,
+  createStopOrder,
+  getUserStopOrders,
+  cancelStopOrder,
+  getStopOrderById,
+  lockPendingStopOrderById,
+  getPendingStopOrders,
+  markStopOrderFilled,
+  expireDayStopOrders,
+  cancelOrphanedLinkedStopOrders,
 } = require(
-  "../repositories/limitOrder.repository"
+  "../repositories/stopOrder.repository"
 );
 
 const pool = require(
@@ -19,6 +18,12 @@ const pool = require(
 
 const matchingEngine = require(
   "../../../matching-engine"
+);
+
+const {
+  redisClient,
+} = require(
+  "../../../config/redis"
 );
 
 const {
@@ -53,9 +58,10 @@ const {
 );
 
 const {
-  redisClient,
+  getLimitOrderById,
+  lockPendingLimitOrderById,
 } = require(
-  "../../../config/redis"
+  "../../limit-order/repositories/limitOrder.repository"
 );
 
 const {
@@ -65,12 +71,12 @@ const {
 );
 
 const {
-  cancelLinkedStopForLimitOrder,
+  cancelLinkedLimitForStopOrder,
 } = require(
   "../../oco/services/oco.service"
 );
 
-async function placeLimitOrder(
+async function placeStopOrder(
   userId,
   data
 ) {
@@ -81,15 +87,20 @@ async function placeLimitOrder(
     validity = "DAY",
   } = data;
 
-  const limitPrice =
-    data.limitPrice ??
-    data.limit_price;
+  const stopPrice =
+    data.stopPrice ??
+    data.stop_price;
+
+  const linkedLimitOrderId =
+    data.linkedLimitOrderId ??
+    data.linked_limit_order_id ??
+    null;
 
   if (
     !symbol ||
     !side ||
     !quantity ||
-    !limitPrice
+    !stopPrice
   ) {
     throw new Error(
       "Missing required fields"
@@ -133,16 +144,72 @@ async function placeLimitOrder(
   const currentPrice = Number(parsedPrice.price);
   const lowerPriceBound = currentPrice * 0.75;
   const upperPriceBound = currentPrice * 1.25;
-  if (limitPrice < lowerPriceBound || limitPrice > upperPriceBound) {
+  if (stopPrice < lowerPriceBound || stopPrice > upperPriceBound) {
     throw new Error(
-      `Limit price must be within ±25% of current price (₹${lowerPriceBound.toFixed(2)} - ₹${upperPriceBound.toFixed(2)})`
+      `Stop price must be within ±25% of current price (₹${lowerPriceBound.toFixed(2)} - ₹${upperPriceBound.toFixed(2)})`
     );
   }
 
-  if (side === "BUY" && limitPrice > currentPrice) {
+  if (side === "BUY" && stopPrice <= currentPrice) {
     throw new Error(
-      `Limit price for buying cannot be greater than the current market price (₹${currentPrice.toFixed(2)})`
+      `Stop price for buying must be above the current market price (₹${currentPrice.toFixed(2)})`
     );
+  }
+
+  if (side === "SELL" && stopPrice >= currentPrice) {
+    throw new Error(
+      `Stop price for selling must be below the current market price (₹${currentPrice.toFixed(2)})`
+    );
+  }
+
+  if (linkedLimitOrderId) {
+    if (side !== "SELL") {
+      throw new Error(
+        "OCO linking is only supported for SELL stop orders"
+      );
+    }
+
+    const linkedOrder =
+      await getLimitOrderById(
+        linkedLimitOrderId
+      );
+
+    if (
+      !linkedOrder ||
+      String(linkedOrder.userId) !== String(userId) ||
+      linkedOrder.status !== "PENDING"
+    ) {
+      throw new Error(
+        "Linked limit order not found"
+      );
+    }
+
+    if (
+      linkedOrder.symbol !== symbol ||
+      linkedOrder.side !== "SELL"
+    ) {
+      throw new Error(
+        "Linked limit order must be a SELL order for the same stock"
+      );
+    }
+
+    if (
+      Number(linkedOrder.quantity) !==
+      Number(quantity)
+    ) {
+      throw new Error(
+        "Linked limit order quantity must match the stop order quantity"
+      );
+    }
+
+    if (
+      (linkedOrder.validity || "DAY") !==
+      validity
+    ) {
+      throw new Error(
+        "Linked limit order validity must match the stop order validity"
+      );
+    }
   }
 
   if (side === "SELL") {
@@ -158,35 +225,36 @@ async function placeLimitOrder(
       );
     }
 
-    const reservedQuantity =
-      await getReservedSellQuantity(
-        userId,
-        symbol
-      );
-
-    const availableQuantity =
-      Number(holding.quantity) -
-      reservedQuantity;
-
     if (
-      Number(quantity) >
-      availableQuantity
-    ) {
-      throw new Error(
-        `Only ${availableQuantity} shares available`
-      );
-    }
-  
-
-    if (
-      Number(
-        holding.quantity
-      ) <
+      Number(holding.quantity) <
       Number(quantity)
     ) {
       throw new Error(
         "Insufficient holdings"
       );
+    }
+
+    // A linked (OCO) stop shares the reservation of its limit leg —
+    // at most one of the two legs can ever fill.
+    if (!linkedLimitOrderId) {
+      const reservedQuantity =
+        await getReservedSellQuantity(
+          userId,
+          symbol
+        );
+
+      const availableQuantity =
+        Number(holding.quantity) -
+        reservedQuantity;
+
+      if (
+        Number(quantity) >
+        availableQuantity
+      ) {
+        throw new Error(
+          `Only ${availableQuantity} shares available`
+        );
+      }
     }
   }
 
@@ -197,24 +265,42 @@ async function placeLimitOrder(
   try {
     await client.query("BEGIN");
 
+    if (linkedLimitOrderId) {
+      const lockedLimitOrder =
+        await lockPendingLimitOrderById(
+          linkedLimitOrderId,
+          client
+        );
+
+      if (!lockedLimitOrder) {
+        throw new Error(
+          "Linked limit order is no longer active"
+        );
+      }
+    }
+
     order =
-      await createLimitOrder({
+      await createStopOrder({
         userId,
         symbol,
         side,
         quantity,
-        limitPrice,
+        stopPrice,
         validity,
+        linkedLimitOrderId,
       }, client);
 
-    addOrderToMatchingEngine(order);
+    addStopOrderToMatchingEngine(order);
 
     await createNotification({
       userId,
       title:
-        "Limit Order Placed",
+        "Stop Order Placed",
       message:
-        `Your ${side} limit order for ${symbol} has been placed. Quantity: ${quantity}. Limit Price: ₹${limitPrice}.`,
+        `Your ${side} stop order for ${symbol} has been placed. Quantity: ${quantity}. Stop Price: ₹${stopPrice}.` +
+        (linkedLimitOrderId
+          ? " Linked to your limit order (OCO)."
+          : ""),
     }, client);
 
     await client.query("COMMIT");
@@ -222,9 +308,15 @@ async function placeLimitOrder(
     await client.query("ROLLBACK");
 
     if (order) {
-      matchingEngine.cancelOrder(
+      matchingEngine.cancelStopOrder(
         order.symbol,
         order.id
+      );
+    }
+
+    if (error.code === "23505") {
+      throw new Error(
+        "This limit order already has a linked stop order"
       );
     }
 
@@ -236,20 +328,20 @@ async function placeLimitOrder(
   return order;
 }
 
-async function listLimitOrders(
+async function listStopOrders(
   userId
 ) {
-  return getUserLimitOrders(
+  return getUserStopOrders(
     userId
   );
 }
 
-async function removeLimitOrder(
+async function removeStopOrder(
   id,
   userId
 ) {
   const existingOrder =
-    await getLimitOrderById(id);
+    await getStopOrderById(id);
 
   if (
     !existingOrder ||
@@ -257,12 +349,12 @@ async function removeLimitOrder(
     existingOrder.status !== "PENDING"
   ) {
     throw new Error(
-      "Limit order not found"
+      "Stop order not found"
     );
   }
 
   const removedFromEngine =
-    matchingEngine.cancelOrder(
+    matchingEngine.cancelStopOrder(
       existingOrder.symbol,
       existingOrder.id
     );
@@ -271,13 +363,13 @@ async function removeLimitOrder(
     await pool.connect();
 
   let order;
-  let cancelledStopOrder = null;
+  let cancelledLimitOrder = null;
 
   try {
     await client.query("BEGIN");
 
     order =
-      await cancelLimitOrder(
+      await cancelStopOrder(
         id,
         userId,
         client
@@ -285,23 +377,23 @@ async function removeLimitOrder(
 
     if (!order) {
       throw new Error(
-        "Limit order not found"
+        "Stop order not found"
       );
     }
 
     await createNotification({
       userId,
       title:
-        "Limit Order Cancelled",
+        "Stop Order Cancelled",
       message:
-        `Your ${order.side} limit order for ${order.symbol} has been cancelled.`,
+        `Your ${order.side} stop order for ${order.symbol} has been cancelled.`,
     }, client);
 
     // OCO group semantics: cancelling one leg cancels the other.
-    cancelledStopOrder =
-      await cancelLinkedStopForLimitOrder(
-        id,
-        "you cancelled its linked limit order (OCO)",
+    cancelledLimitOrder =
+      await cancelLinkedLimitForStopOrder(
+        order,
+        "you cancelled its linked stop order (OCO)",
         client
       );
 
@@ -310,7 +402,7 @@ async function removeLimitOrder(
     await client.query("ROLLBACK");
 
     if (removedFromEngine) {
-      await restorePendingOrderToEngine(id);
+      await restorePendingStopOrderToEngine(id);
     }
 
     throw error;
@@ -318,39 +410,47 @@ async function removeLimitOrder(
     client.release();
   }
 
-  if (cancelledStopOrder) {
-    matchingEngine.cancelStopOrder(
-      cancelledStopOrder.symbol,
-      cancelledStopOrder.id
-    );
-  }
-
-  if (!order) {
-    throw new Error(
-      "Limit order not found"
+  if (cancelledLimitOrder) {
+    matchingEngine.cancelOrder(
+      cancelledLimitOrder.symbol,
+      cancelledLimitOrder.id
     );
   }
 
   return order;
 }
 
-async function loadPendingLimitOrdersIntoMatchingEngine() {
+async function loadPendingStopOrdersIntoMatchingEngine() {
+  const orphanedOrders =
+    await cancelOrphanedLinkedStopOrders();
+
+  for (const order of orphanedOrders) {
+    await createNotification({
+      userId:
+        order.userId,
+      title:
+        "Stop Order Cancelled (OCO)",
+      message:
+        `Your ${order.side} stop order for ${order.symbol} was auto-cancelled because its linked limit order is no longer active.`,
+    });
+  }
+
   const orders =
-    await getPendingLimitOrders();
+    await getPendingStopOrders();
 
   for (const order of orders) {
-    addOrderToMatchingEngine(order);
+    addStopOrderToMatchingEngine(order);
   }
 
   return orders.length;
 }
 
-async function processMarketPriceForLimitOrders(
+async function processMarketPriceForStopOrders(
   symbol,
   currentPrice
 ) {
   const trades =
-    matchingEngine.processMarketPrice(
+    matchingEngine.processMarketPriceForStops(
       symbol,
       Number(currentPrice)
     );
@@ -360,30 +460,30 @@ async function processMarketPriceForLimitOrders(
   }
 
   try {
-    await settleExecutedTrades(trades);
+    await settleExecutedStopTrades(trades);
     return trades;
   } catch (error) {
-    await restoreTradesToMatchingEngine(
+    await restoreStopTradesToMatchingEngine(
       trades
     );
     throw error;
   }
 }
 
-async function settleExecutedTrades(
+async function settleExecutedStopTrades(
   trades
 ) {
   const client =
     await pool.connect();
 
-  const stopOrdersToRemoveFromEngine = [];
+  const limitOrdersToRemoveFromEngine = [];
 
   try {
     await client.query("BEGIN");
 
     for (const trade of trades) {
       const order =
-        await lockPendingLimitOrderById(
+        await lockPendingStopOrderById(
           trade.orderId,
           client
         );
@@ -392,7 +492,7 @@ async function settleExecutedTrades(
         continue;
       }
 
-      await markLimitOrderFilled({
+      await markStopOrderFilled({
         id: order.id,
         executedPrice:
           trade.executedPrice,
@@ -439,42 +539,25 @@ async function settleExecutedTrades(
         }, client);
       }
 
-      await createLimitOrderTrade({
-        tradeId:
-          trade.tradeId,
-        limitOrderId:
-          order.id,
-        userId:
-          order.userId,
-        symbol:
-          order.symbol,
-        side:
-          order.side,
-        quantity:
-          Number(order.quantity),
-        price:
-          trade.executedPrice,
-      }, client);
-
       await createNotification({
         userId:
           order.userId,
         title:
-          "Limit Order Executed",
+          "Stop Order Executed",
         message:
-          `Your ${order.side} limit order for ${order.symbol} has been executed. Quantity: ${order.quantity}. Executed Price: ₹${trade.executedPrice}.`,
+          `Your ${order.side} stop order for ${order.symbol} has been executed. Quantity: ${order.quantity}. Executed Price: ₹${trade.executedPrice}.`,
       }, client);
 
-      const cancelledStopOrder =
-        await cancelLinkedStopForLimitOrder(
-          order.id,
-          "its linked limit order executed (OCO)",
+      const cancelledLimitOrder =
+        await cancelLinkedLimitForStopOrder(
+          order,
+          "its linked stop order executed (OCO)",
           client
         );
 
-      if (cancelledStopOrder) {
-        stopOrdersToRemoveFromEngine.push(
-          cancelledStopOrder
+      if (cancelledLimitOrder) {
+        limitOrdersToRemoveFromEngine.push(
+          cancelledLimitOrder
         );
       }
     }
@@ -487,17 +570,17 @@ async function settleExecutedTrades(
     client.release();
   }
 
-  for (const stopOrder of stopOrdersToRemoveFromEngine) {
-    matchingEngine.cancelStopOrder(
-      stopOrder.symbol,
-      stopOrder.id
+  for (const limitOrder of limitOrdersToRemoveFromEngine) {
+    matchingEngine.cancelOrder(
+      limitOrder.symbol,
+      limitOrder.id
     );
   }
 }
 
-async function expireDayOrders() {
+async function expireStopDayOrders() {
   const pendingOrders =
-    await getPendingLimitOrders();
+    await getPendingStopOrders();
 
   const dayOrders =
     pendingOrders.filter(
@@ -507,7 +590,7 @@ async function expireDayOrders() {
     );
 
   for (const order of dayOrders) {
-    matchingEngine.cancelOrder(
+    matchingEngine.cancelStopOrder(
       order.symbol,
       order.id
     );
@@ -520,7 +603,7 @@ async function expireDayOrders() {
     await client.query("BEGIN");
 
     const expiredOrders =
-      await expireDayLimitOrders(
+      await expireDayStopOrders(
         client
       );
 
@@ -529,9 +612,9 @@ async function expireDayOrders() {
         userId:
           order.userId,
         title:
-          "DAY Limit Order Expired",
+          "DAY Stop Order Expired",
         message:
-          `Your ${order.side} DAY limit order for ${order.symbol} has expired.`,
+          `Your ${order.side} DAY stop order for ${order.symbol} has expired.`,
       }, client);
     }
 
@@ -542,7 +625,7 @@ async function expireDayOrders() {
     await client.query("ROLLBACK");
 
     for (const order of dayOrders) {
-      addOrderToMatchingEngine(order);
+      addStopOrderToMatchingEngine(order);
     }
 
     throw error;
@@ -551,26 +634,26 @@ async function expireDayOrders() {
   }
 }
 
-async function restoreTradesToMatchingEngine(
+async function restoreStopTradesToMatchingEngine(
   trades
 ) {
   for (const trade of trades) {
-    await restorePendingOrderToEngine(
+    await restorePendingStopOrderToEngine(
       trade.orderId
     );
   }
 }
 
-async function restorePendingOrderToEngine(
+async function restorePendingStopOrderToEngine(
   orderId
 ) {
   const order =
-    await getLimitOrderById(orderId);
+    await getStopOrderById(orderId);
 
   if (
     !order ||
     order.status !== "PENDING" ||
-    matchingEngine.getOrder(
+    matchingEngine.getStopOrder(
       order.symbol,
       order.id
     )
@@ -578,12 +661,12 @@ async function restorePendingOrderToEngine(
     return;
   }
 
-  addOrderToMatchingEngine(order);
+  addStopOrderToMatchingEngine(order);
 }
 
-function addOrderToMatchingEngine(order) {
+function addStopOrderToMatchingEngine(order) {
   if (
-    matchingEngine.getOrder(
+    matchingEngine.getStopOrder(
       order.symbol,
       order.id
     )
@@ -591,15 +674,15 @@ function addOrderToMatchingEngine(order) {
     return;
   }
 
-  matchingEngine.placeOrder({
+  matchingEngine.placeStopOrder({
     id: order.id,
     userId: order.userId,
     symbol: order.symbol,
     side: order.side,
     quantity:
       Number(order.quantity),
-    limitPrice:
-      Number(order.limitPrice),
+    stopPrice:
+      Number(order.stopPrice),
     validity:
       order.validity || "DAY",
     createdAt:
@@ -611,10 +694,10 @@ function addOrderToMatchingEngine(order) {
 
 
 module.exports = {
-  placeLimitOrder,
-  listLimitOrders,
-  removeLimitOrder,
-  loadPendingLimitOrdersIntoMatchingEngine,
-  processMarketPriceForLimitOrders,
-  expireDayOrders,
+  placeStopOrder,
+  listStopOrders,
+  removeStopOrder,
+  loadPendingStopOrdersIntoMatchingEngine,
+  processMarketPriceForStopOrders,
+  expireStopDayOrders,
 };

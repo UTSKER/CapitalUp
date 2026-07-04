@@ -28,9 +28,10 @@ export function MarketsView({
   const [tradeLoading, setTradeLoading] = useState(false);
 
   // Order placement state
-  const [orderType, setOrderType] = useState('MARKET'); // MARKET or LIMIT
+  const [orderType, setOrderType] = useState('MARKET'); // MARKET, LIMIT, STOP or OCO (Limit + Stop-Loss)
   const [quantity, setQuantity] = useState(1);
   const [limitPrice, setLimitPrice] = useState(0);
+  const [stopPrice, setStopPrice] = useState(0);
   const [orderSide, setOrderSide] = useState(initialOrderSide || 'BUY'); // BUY or SELL
   const [tradeError, setTradeError] = useState('');
   const [tradeSuccess, setTradeSuccess] = useState('');
@@ -135,8 +136,9 @@ export function MarketsView({
 
     fetchHistory();
     fetchHoldings();
-    // Default limit price to lastPrice when stock changes
+    // Default limit/stop price to lastPrice when stock changes
     setLimitPrice(selectedStock.lastPrice || 100);
+    setStopPrice(selectedStock.lastPrice || 100);
     setTradeSuccess('');
     setTradeError('');
   }, [selectedStock, API_BASE_URL, token]);
@@ -194,27 +196,58 @@ export function MarketsView({
     }
 
     const currentPrice = selectedStock.lastPrice || 0;
+    const lowerBound = currentPrice * 0.75;
+    const upperBound = currentPrice * 1.25;
 
-    if (orderType === 'LIMIT') {
+    if (orderType === 'LIMIT' || orderType === 'OCO') {
       if (limitPrice <= 0) {
         setTradeError('Limit price must be greater than 0');
         return;
       }
 
-      const lowerBound = currentPrice * 0.75;
-      const upperBound = currentPrice * 1.25;
       if (limitPrice < lowerBound || limitPrice > upperBound) {
         setTradeError(`Limit price must be within ±25% of current price (₹${lowerBound.toFixed(2)} - ₹${upperBound.toFixed(2)})`);
         return;
       }
 
-      if (orderSide === 'BUY' && limitPrice > currentPrice) {
+      if (orderType === 'LIMIT' && orderSide === 'BUY' && limitPrice > currentPrice) {
         setTradeError(`Limit price for buying cannot be greater than the current market price (₹${currentPrice.toFixed(2)})`);
+        return;
+      }
+
+      if (orderType === 'OCO' && limitPrice <= currentPrice) {
+        setTradeError(`Target price must be above the current market price (₹${currentPrice.toFixed(2)})`);
         return;
       }
     }
 
-    const price = orderType === 'MARKET' ? currentPrice : limitPrice;
+    if (orderType === 'STOP' || orderType === 'OCO') {
+      if (stopPrice <= 0) {
+        setTradeError('Stop price must be greater than 0');
+        return;
+      }
+
+      if (stopPrice < lowerBound || stopPrice > upperBound) {
+        setTradeError(`Stop price must be within ±25% of current price (₹${lowerBound.toFixed(2)} - ₹${upperBound.toFixed(2)})`);
+        return;
+      }
+
+      const stopSide = orderType === 'OCO' ? 'SELL' : orderSide;
+      if (stopSide === 'BUY' && stopPrice <= currentPrice) {
+        setTradeError(`Stop price for buying must be above the current market price (₹${currentPrice.toFixed(2)})`);
+        return;
+      }
+      if (stopSide === 'SELL' && stopPrice >= currentPrice) {
+        setTradeError(`Stop price for selling must be below the current market price (₹${currentPrice.toFixed(2)})`);
+        return;
+      }
+    }
+
+    const price = orderType === 'MARKET'
+      ? currentPrice
+      : orderType === 'STOP'
+        ? stopPrice
+        : limitPrice;
     if (!price || price <= 0) {
       setTradeError('Price must be greater than 0');
       return;
@@ -239,23 +272,74 @@ export function MarketsView({
     // Call API
     try {
       setTradeLoading(true);
-      const endpoint = orderType === 'MARKET' ? '/orders' : '/limit-orders';
-      const payload = orderType === 'MARKET'
-        ? { symbol: selectedStock.symbol, side: orderSide, quantity: Number(quantity) }
-        : { symbol: selectedStock.symbol, side: orderSide, quantity: Number(quantity), target_price: Number(limitPrice), limitPrice: Number(limitPrice), limit_price: Number(limitPrice) };
+      const postHeaders = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      if (orderType === 'OCO') {
+        // Leg 1: SELL limit (take profit)
+        const limitRes = await fetch(`${API_BASE_URL}/limit-orders`, {
+          method: 'POST',
+          headers: postHeaders,
+          body: JSON.stringify({
+            symbol: selectedStock.symbol,
+            side: 'SELL',
+            quantity: Number(quantity),
+            limitPrice: Number(limitPrice),
+            limit_price: Number(limitPrice)
+          })
+        });
+        const limitData = await limitRes.json();
+        if (!limitRes.ok) {
+          throw new Error(limitData.message || 'Failed to place target limit order');
+        }
+        const limitId = limitData.data.id;
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Transaction failed');
+        // Leg 2: linked SELL stop (stop-loss); roll back the limit leg on failure
+        const stopRes = await fetch(`${API_BASE_URL}/stop-orders`, {
+          method: 'POST',
+          headers: postHeaders,
+          body: JSON.stringify({
+            symbol: selectedStock.symbol,
+            side: 'SELL',
+            quantity: Number(quantity),
+            stopPrice: Number(stopPrice),
+            stop_price: Number(stopPrice),
+            linkedLimitOrderId: limitId,
+            linked_limit_order_id: limitId
+          })
+        });
+        if (!stopRes.ok) {
+          const stopData = await stopRes.json();
+          await fetch(`${API_BASE_URL}/limit-orders/${limitId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          throw new Error(stopData.message || 'Failed to place stop-loss order');
+        }
+      } else {
+        const endpoint = orderType === 'MARKET'
+          ? '/orders'
+          : orderType === 'LIMIT'
+            ? '/limit-orders'
+            : '/stop-orders';
+        const payload = orderType === 'MARKET'
+          ? { symbol: selectedStock.symbol, side: orderSide, quantity: Number(quantity) }
+          : orderType === 'LIMIT'
+            ? { symbol: selectedStock.symbol, side: orderSide, quantity: Number(quantity), target_price: Number(limitPrice), limitPrice: Number(limitPrice), limit_price: Number(limitPrice) }
+            : { symbol: selectedStock.symbol, side: orderSide, quantity: Number(quantity), stopPrice: Number(stopPrice), stop_price: Number(stopPrice) };
+
+        const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers: postHeaders,
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Transaction failed');
+        }
       }
 
       // Adjust Virtual Balance
@@ -265,7 +349,11 @@ export function MarketsView({
       } else {
         // If selling, we gain cash instantly
         updateBalance(virtualBalance + totalCost);
-        setTradeSuccess(`Successfully placed order to SELL ${quantity} shares of ${selectedStock.symbol}.`);
+        setTradeSuccess(
+          orderType === 'OCO'
+            ? `Placed OCO pair for ${quantity} shares of ${selectedStock.symbol}: target ₹${Number(limitPrice).toFixed(2)} / stop-loss ₹${Number(stopPrice).toFixed(2)}. If one executes, the other cancels automatically.`
+            : `Successfully placed order to SELL ${quantity} shares of ${selectedStock.symbol}.`
+        );
       }
 
       // Force positions updates
@@ -885,7 +973,11 @@ export function MarketsView({
                         <div style={{ display: 'flex', background: 'var(--color-white-0.04)', borderRadius: '8px', padding: '3px' }}>
                           <button
                             type="button"
-                            onClick={() => setOrderSide('BUY')}
+                            onClick={() => {
+                              setOrderSide('BUY');
+                              // OCO (target + stop-loss) is SELL-only
+                              if (orderType === 'OCO') setOrderType('MARKET');
+                            }}
                             style={{
                               flex: 1,
                               padding: '6px 10px',
@@ -959,6 +1051,44 @@ export function MarketsView({
                           >
                             Limit
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrderType('STOP')}
+                            style={{
+                              flex: 1,
+                              padding: '6px',
+                              borderRadius: '4px',
+                              border: 'none',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              background: orderType === 'STOP' ? 'var(--color-accent)' : 'transparent',
+                              color: orderType === 'STOP' ? 'var(--color-text-inverted)' : 'var(--color-text-muted)',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            Stop
+                          </button>
+                          {orderSide === 'SELL' && (
+                            <button
+                              type="button"
+                              onClick={() => setOrderType('OCO')}
+                              style={{
+                                flex: 1.2,
+                                padding: '6px',
+                                borderRadius: '4px',
+                                border: 'none',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                background: orderType === 'OCO' ? 'var(--color-accent)' : 'transparent',
+                                color: orderType === 'OCO' ? 'var(--color-text-inverted)' : 'var(--color-text-muted)',
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              Limit + SL
+                            </button>
+                          )}
                         </div>
 
                         {/* Inputs Row */}
@@ -984,9 +1114,11 @@ export function MarketsView({
                               }}
                             />
                           </div>
-                          {orderType === 'LIMIT' && (
+                          {(orderType === 'LIMIT' || orderType === 'OCO') && (
                             <div style={{ flex: 1.2 }}>
-                              <label style={{ display: 'block', fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Price (₹)</label>
+                              <label style={{ display: 'block', fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
+                                {orderType === 'OCO' ? 'Target (₹)' : 'Price (₹)'}
+                              </label>
                               <input
                                 type="number"
                                 step="0.05"
@@ -1006,7 +1138,45 @@ export function MarketsView({
                               />
                             </div>
                           )}
+                          {(orderType === 'STOP' || orderType === 'OCO') && (
+                            <div style={{ flex: 1.2 }}>
+                              <label style={{ display: 'block', fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
+                                {orderType === 'OCO' ? 'Stop-Loss (₹)' : 'Stop Price (₹)'}
+                              </label>
+                              <input
+                                type="number"
+                                step="0.05"
+                                value={stopPrice}
+                                onChange={(e) => setStopPrice(Number(e.target.value))}
+                                style={{
+                                  width: '100%',
+                                  background: 'var(--color-white-0.04)',
+                                  border: '1px solid var(--color-white-0.08)',
+                                  borderRadius: '6px',
+                                  padding: '6px 10px',
+                                  color: 'var(--color-text-main)',
+                                  boxSizing: 'border-box',
+                                  fontSize: '12px',
+                                  fontFamily: 'JetBrains Mono'
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
+
+                        {orderType === 'STOP' && (
+                          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                            {orderSide === 'BUY'
+                              ? `Triggers when price rises to ₹${Number(stopPrice || 0).toFixed(2)} or above; executes at market price.`
+                              : `Triggers when price falls to ₹${Number(stopPrice || 0).toFixed(2)} or below; executes at market price.`}
+                          </div>
+                        )}
+
+                        {orderType === 'OCO' && (
+                          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                            Sells at target ₹{Number(limitPrice || 0).toFixed(2)} or stop-loss ₹{Number(stopPrice || 0).toFixed(2)} — whichever hits first. The other order cancels automatically.
+                          </div>
+                        )}
 
                         {/* Summary values */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'var(--color-white-0.03)', padding: '10px', borderRadius: '8px' }}>
@@ -1019,7 +1189,7 @@ export function MarketsView({
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--color-text-muted)' }}>
                             <span>Est. Cost</span>
                             <span style={{ color: 'var(--color-text-main)', fontWeight: 600, fontFamily: 'JetBrains Mono' }}>
-                              ₹{((orderType === 'MARKET' ? selectedStock.lastPrice : limitPrice) * quantity || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              ₹{((orderType === 'MARKET' ? selectedStock.lastPrice : orderType === 'STOP' ? stopPrice : limitPrice) * quantity || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                         </div>

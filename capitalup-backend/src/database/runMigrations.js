@@ -15,7 +15,8 @@ async function runMigration() {
    //"009_add_profile_marital_status.sql",
    //"010_create_limit_orders_table.sql",
    //"011_create_notifications_table.sql",
-   "012_add_stock_market_data_columns.sql"
+   //"012_add_stock_market_data_columns.sql",
+   "013_create_stop_orders_table.sql"
   ];
 
   for (const file of files) {

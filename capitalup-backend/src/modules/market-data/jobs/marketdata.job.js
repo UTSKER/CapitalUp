@@ -12,6 +12,12 @@ const {
   "../../limit-order/services/limitOrder.service"
 );
 
+const {
+  expireStopDayOrders,
+} = require(
+  "../../stop-order/services/stopOrder.service"
+);
+
 function startMarketDataJob() {
   cron.schedule(
     "*/10 * * * * *",
@@ -39,6 +45,20 @@ function startDayOrderExpiryJob() {
       } catch (error) {
         console.error(
           "Failed to expire DAY limit orders",
+          error.message
+        );
+      }
+
+      try {
+        const expiredStopOrders =
+          await expireStopDayOrders();
+
+        console.log(
+          `Expired ${expiredStopOrders.length} DAY stop orders`
+        );
+      } catch (error) {
+        console.error(
+          "Failed to expire DAY stop orders",
           error.message
         );
       }

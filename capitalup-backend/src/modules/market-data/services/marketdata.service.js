@@ -12,6 +12,10 @@ const {
 } = require("../../limit-order/services/limitOrder.service");
 
 const {
+  processMarketPriceForStopOrders,
+} = require("../../stop-order/services/stopOrder.service");
+
+const {
   getTrackedStockSymbols,
   updateStockMarketData,
 } = require("../../stocks/repositories/stock.repository");
@@ -72,8 +76,15 @@ async function refreshMarketData() {
         stockData.price
       );
 
+      // Stop orders run AFTER limit orders so an OCO stop leg is
+      // already cancelled when its linked limit order fills this tick.
+      const stopTrades = await processMarketPriceForStopOrders(
+        symbol,
+        stockData.price
+      );
+
       console.log(
-        `Updated ${symbol}; executed ${trades.length} limit orders`
+        `Updated ${symbol}; executed ${trades.length} limit orders, ${stopTrades.length} stop orders`
       );
     } catch (error) {
       console.error(

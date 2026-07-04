@@ -21,6 +21,10 @@ const {
 } = require("./modules/limit-order/services/limitOrder.service");
 
 const {
+  loadPendingStopOrdersIntoMatchingEngine,
+} = require("./modules/stop-order/services/stopOrder.service");
+
+const {
   initializeSocket,
 } = require("../src/websockets/socket.js");
 
@@ -96,6 +100,13 @@ async function startServer() {
 
     console.log(
       `Matching Engine restored ${restoredLimitOrders} pending limit orders`
+    );
+
+    const restoredStopOrders =
+      await loadPendingStopOrdersIntoMatchingEngine();
+
+    console.log(
+      `Matching Engine restored ${restoredStopOrders} pending stop orders`
     );
 
     initializeSocket(server);

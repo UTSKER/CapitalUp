@@ -95,6 +95,15 @@ async function startServer() {
       );
     }
 
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 10000.00
+      `);
+      console.log("DB update check: balance column in users table is ready");
+    } catch (err) {
+      console.error("Failed to add balance column to users table:", err.message);
+    }
+
     const restoredLimitOrders =
       await loadPendingLimitOrdersIntoMatchingEngine();
 

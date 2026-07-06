@@ -19,6 +19,11 @@ const {
 );
 
 function startMarketDataJob() {
+  console.log("Seeding initial market prices on startup...");
+  refreshMarketData(true).catch((err) => {
+    console.error("Failed to seed initial market prices:", err.message);
+  });
+
   cron.schedule(
     "*/10 * * * * *",
     async () => {
@@ -26,7 +31,7 @@ function startMarketDataJob() {
         "Running market data refresh..."
       );
 
-      await refreshMarketData();
+      await refreshMarketData(false);
     }
   );
 }

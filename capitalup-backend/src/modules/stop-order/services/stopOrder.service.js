@@ -279,6 +279,17 @@ async function placeStopOrder(
       }
     }
 
+    if (side === "BUY") {
+      const totalCost = Number(stopPrice) * Number(quantity);
+      const userRes = await client.query("SELECT balance FROM users WHERE user_id = $1 FOR UPDATE", [userId]);
+      const currentBalance = userRes.rows[0] ? Number(userRes.rows[0].balance) : 0;
+      if (currentBalance < totalCost) {
+        throw new Error(`Insufficient cash balance. Required: ₹${totalCost.toFixed(2)}, Available: ₹${currentBalance.toFixed(2)}`);
+      }
+
+      await client.query("UPDATE users SET balance = balance - $1 WHERE user_id = $2", [totalCost, userId]);
+    }
+
     order =
       await createStopOrder({
         userId,
@@ -304,6 +315,13 @@ async function placeStopOrder(
     }, client);
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [userId]);
+    if (balResult.rows[0]) {
+      const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+      await syncBalanceToRedis(userId, Number(balResult.rows[0].balance));
+    }
   } catch (error) {
     await client.query("ROLLBACK");
 
@@ -381,6 +399,11 @@ async function removeStopOrder(
       );
     }
 
+    if (order.side === "BUY") {
+      const refund = Number(order.quantity) * Number(order.stopPrice || order.stop_price);
+      await client.query("UPDATE users SET balance = balance + $1 WHERE user_id = $2", [refund, userId]);
+    }
+
     await createNotification({
       userId,
       title:
@@ -398,6 +421,13 @@ async function removeStopOrder(
       );
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [userId]);
+    if (balResult.rows[0]) {
+      const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+      await syncBalanceToRedis(userId, Number(balResult.rows[0].balance));
+    }
   } catch (error) {
     await client.query("ROLLBACK");
 
@@ -477,6 +507,7 @@ async function settleExecutedStopTrades(
     await pool.connect();
 
   const limitOrdersToRemoveFromEngine = [];
+  const executedUserIds = new Set();
 
   try {
     await client.query("BEGIN");
@@ -491,6 +522,8 @@ async function settleExecutedStopTrades(
       if (!order) {
         continue;
       }
+
+      executedUserIds.add(order.userId);
 
       await markStopOrderFilled({
         id: order.id,
@@ -537,6 +570,9 @@ async function settleExecutedStopTrades(
           quantity:
             Number(order.quantity),
         }, client);
+
+        const proceeds = Number(order.quantity) * Number(trade.executedPrice);
+        await client.query("UPDATE users SET balance = balance + $1 WHERE user_id = $2", [proceeds, order.userId]);
       }
 
       await createNotification({
@@ -563,6 +599,19 @@ async function settleExecutedStopTrades(
     }
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    for (const uId of executedUserIds) {
+      try {
+        const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [uId]);
+        if (balResult.rows[0]) {
+          const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+          await syncBalanceToRedis(uId, Number(balResult.rows[0].balance));
+        }
+      } catch (redisErr) {
+        console.error(`Failed to sync Redis balance for user ${uId} after stop execution:`, redisErr.message);
+      }
+    }
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -607,7 +656,15 @@ async function expireStopDayOrders() {
         client
       );
 
+    const expiredUserIds = new Set();
+
     for (const order of expiredOrders) {
+      if (order.side === "BUY") {
+        const refund = Number(order.quantity) * Number(order.stopPrice || order.stop_price);
+        await client.query("UPDATE users SET balance = balance + $1 WHERE user_id = $2", [refund, order.userId]);
+        expiredUserIds.add(order.userId);
+      }
+
       await createNotification({
         userId:
           order.userId,
@@ -619,6 +676,19 @@ async function expireStopDayOrders() {
     }
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    for (const uId of expiredUserIds) {
+      try {
+        const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [uId]);
+        if (balResult.rows[0]) {
+          const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+          await syncBalanceToRedis(uId, Number(balResult.rows[0].balance));
+        }
+      } catch (redisErr) {
+        console.error(`Failed to sync Redis balance for user ${uId} after stop expiration:`, redisErr.message);
+      }
+    }
 
     return expiredOrders;
   } catch (error) {

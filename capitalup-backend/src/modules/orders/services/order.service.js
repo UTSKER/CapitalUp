@@ -1,3 +1,4 @@
+const pool = require("../../../config/postgre");
 const {redisClient} = require(
   "../../../config/redis"
 );
@@ -45,46 +46,79 @@ async function placeOrder({
     parsedPrice.price
   );
 
-  const order =
-    await createOrder({
-      userId,
-      symbol,
-      side,
-      quantity,
-      price,
-      status: "EXECUTED",
-    });
+  const totalCost = price * quantity;
+  const client = await pool.connect();
 
-  if (side === "BUY") {
-    await buyStock({
-      userId,
-      symbol,
-      quantity,
-      price,
-    });
+  try {
+    await client.query("BEGIN");
 
-    await createNotification({
-      userId,
-      title: "Order Executed",
-      message: `Your order to buy ${quantity} shares of ${symbol} at ₹${price} has been executed.`,
-    });
+    if (side === "BUY") {
+      const userRes = await client.query("SELECT balance FROM users WHERE user_id = $1 FOR UPDATE", [userId]);
+      const currentBalance = userRes.rows[0] ? Number(userRes.rows[0].balance) : 0;
+      if (currentBalance < totalCost) {
+        throw new Error(`Insufficient cash balance. Required: ₹${totalCost.toFixed(2)}, Available: ₹${currentBalance.toFixed(2)}`);
+      }
+
+      await client.query("UPDATE users SET balance = balance - $1 WHERE user_id = $2", [totalCost, userId]);
+    }
+
+    const order =
+      await createOrder({
+        userId,
+        symbol,
+        side,
+        quantity,
+        price,
+        status: "EXECUTED",
+      }, client);
+
+    if (side === "BUY") {
+      await buyStock({
+        userId,
+        symbol,
+        quantity,
+        price,
+      }, client);
+
+      await createNotification({
+        userId,
+        title: "Order Executed",
+        message: `Your order to buy ${quantity} shares of ${symbol} at ₹${price} has been executed.`,
+      }, client);
+    }
+
+    if (side === "SELL") {
+      await sellStock({
+        userId,
+        symbol,
+        quantity,
+      }, client);
+
+      await client.query("UPDATE users SET balance = balance + $1 WHERE user_id = $2", [totalCost, userId]);
+
+      await createNotification({
+        userId,
+        title: "Order Executed",
+        message: `Your order to sell ${quantity} shares of ${symbol} at ₹${price} has been executed.`,
+      }, client);
+    }
+
+    await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [userId]);
+    if (balResult.rows[0]) {
+      const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+      await syncBalanceToRedis(userId, Number(balResult.rows[0].balance));
+    }
+
+    return order;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-
-  if (side === "SELL") {
-    await sellStock({
-      userId,
-      symbol,
-      quantity,
-    });
-
-    await createNotification({
-      userId,
-      title: "Order Executed",
-      message : `Your order to sell ${quantity} shares of ${symbol} at ₹${price} has been executed.`,
-    });
-  }
-
-  return order;
 }
 
 async function getMyOrders(

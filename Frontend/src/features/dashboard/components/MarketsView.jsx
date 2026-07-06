@@ -36,14 +36,7 @@ export function MarketsView({
   const [orderSide, setOrderSide] = useState(initialOrderSide || 'BUY'); // BUY or SELL
   const [tradeError, setTradeError] = useState('');
   const [tradeSuccess, setTradeSuccess] = useState('');
-  const [virtualBalance, setVirtualBalance] = useState(() => {
-    const bal = localStorage.getItem('capitalup-cash-balance');
-    if (bal === null) {
-      localStorage.setItem('capitalup-cash-balance', '10000');
-      return 10000;
-    }
-    return Number(bal);
-  });
+  const [virtualBalance, setVirtualBalance] = useState(10000);
 
   const fetchHoldings = async () => {
     try {
@@ -51,8 +44,13 @@ export function MarketsView({
         headers: { Authorization: `Bearer ${token}` }
       });
       const result = await res.json();
-      if (res.ok && result.data?.holdings) {
-        setHoldings(result.data.holdings);
+      if (res.ok && result.data) {
+        if (result.data.holdings) {
+          setHoldings(result.data.holdings);
+        }
+        if (result.data.summary?.balance != null) {
+          setVirtualBalance(Number(result.data.summary.balance));
+        }
       }
     } catch (err) {
       console.error('Failed to fetch holdings:', err);
@@ -114,6 +112,42 @@ export function MarketsView({
     fetchHoldings();
   }, [API_BASE_URL, token]);
 
+  // Real-time updates for Nifty 50 and Sensex histories
+  useEffect(() => {
+    const stopRealtime = listenToMarketUpdates(({ symbol, stockData }) => {
+      const nextPrice = Number(stockData.price);
+      const timestamp = stockData.updatedAt || new Date().toISOString();
+
+      if (symbol === '^NSEI') {
+        setNiftyHistory((prevHistory) => {
+          if (!prevHistory.length) return [{ price: nextPrice, timestamp }];
+          const lastItem = prevHistory[prevHistory.length - 1];
+          if (lastItem.timestamp === timestamp) {
+            const next = [...prevHistory];
+            next[next.length - 1] = { ...lastItem, price: nextPrice };
+            return next;
+          }
+          const next = [...prevHistory, { price: nextPrice, timestamp }];
+          return next.slice(-50);
+        });
+      } else if (symbol === '^BSESN') {
+        setSensexHistory((prevHistory) => {
+          if (!prevHistory.length) return [{ price: nextPrice, timestamp }];
+          const lastItem = prevHistory[prevHistory.length - 1];
+          if (lastItem.timestamp === timestamp) {
+            const next = [...prevHistory];
+            next[next.length - 1] = { ...lastItem, price: nextPrice };
+            return next;
+          }
+          const next = [...prevHistory, { price: nextPrice, timestamp }];
+          return next.slice(-50);
+        });
+      }
+    });
+
+    return stopRealtime;
+  }, []);
+
   // Fetch stock price history when selectedStock changes
   useEffect(() => {
     if (!selectedStock) return;
@@ -142,7 +176,7 @@ export function MarketsView({
     setStopPrice(selectedStock.lastPrice || 100);
     setTradeSuccess('');
     setTradeError('');
-  }, [selectedStock, API_BASE_URL, token]);
+  }, [selectedStock?.symbol, API_BASE_URL, token]);
 
   useEffect(() => {
     if (!selectedStock?.symbol) return undefined;
@@ -154,12 +188,21 @@ export function MarketsView({
 
       setHistory((prevHistory) => {
         if (!prevHistory.length) return [{ price: nextPrice, timestamp }];
-        const next = [...prevHistory];
-        next[next.length - 1] = {
-          ...next[next.length - 1],
-          price: nextPrice,
-          timestamp,
-        };
+        
+        const lastItem = prevHistory[prevHistory.length - 1];
+        if (lastItem.timestamp === timestamp) {
+          const next = [...prevHistory];
+          next[next.length - 1] = {
+            ...lastItem,
+            price: nextPrice,
+          };
+          return next;
+        }
+
+        const next = [...prevHistory, { price: nextPrice, timestamp }];
+        if (next.length > 50) {
+          next.shift();
+        }
         return next;
       });
     });
@@ -168,9 +211,7 @@ export function MarketsView({
   }, [selectedStock?.symbol]);
 
   // Handle balance updates
-  const updateBalance = (newBalance) => {
-    localStorage.setItem('capitalup-cash-balance', newBalance.toFixed(2));
-    setVirtualBalance(newBalance);
+  const updateBalance = () => {
     window.dispatchEvent(new Event('balanceChanged'));
   };
 
@@ -366,23 +407,22 @@ export function MarketsView({
         }
       }
 
-      // Adjust Virtual Balance
+      // Force positions and balance updates
+      window.dispatchEvent(new Event('holdingsChanged'));
+      window.dispatchEvent(new Event('balanceChanged'));
+      fetchHoldings();
+
       if (orderSide === 'BUY') {
-        updateBalance(virtualBalance - totalCost);
         setTradeSuccess(`Successfully placed order to BUY ${quantity} shares of ${selectedStock.symbol}.`);
       } else {
-        // If selling, we gain cash instantly
-        updateBalance(virtualBalance + totalCost);
         setTradeSuccess(
           orderType === 'OCO'
             ? `Placed OCO pair for ${quantity} shares of ${selectedStock.symbol}: target ₹${Number(limitPrice).toFixed(2)} / stop-loss ₹${Number(stopPrice).toFixed(2)}. If one executes, the other cancels automatically.`
-            : `Successfully placed order to SELL ${quantity} shares of ${selectedStock.symbol}.`
+            : orderType === 'MARKET'
+              ? `Successfully placed order to SELL ${quantity} shares of ${selectedStock.symbol}.`
+              : `Successfully placed pending SELL ${orderType} order for ${quantity} shares of ${selectedStock.symbol} at ₹${(orderType === 'STOP' ? stopPrice : limitPrice).toFixed(2)}.`
         );
       }
-
-      // Force positions updates
-      window.dispatchEvent(new Event('holdingsChanged'));
-      fetchHoldings();
 
     } catch (err) {
       setTradeError(err.message);
@@ -569,6 +609,7 @@ export function MarketsView({
                 {niftyHistory.length > 0 && (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={niftyHistory}>
+                      <YAxis type="number" domain={['dataMin - 15', 'dataMax + 15']} hide={true} />
                       <Area type="monotone" dataKey="price" stroke={isNiftyPos ? 'var(--color-success)' : 'var(--color-error)'} strokeWidth={1.5} fillOpacity={0.06} fill={isNiftyPos ? 'var(--color-success)' : 'var(--color-error)'} />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -601,6 +642,7 @@ export function MarketsView({
                 {sensexHistory.length > 0 && (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={sensexHistory}>
+                      <YAxis type="number" domain={['dataMin - 50', 'dataMax + 50']} hide={true} />
                       <Area type="monotone" dataKey="price" stroke={isSensexPos ? 'var(--color-success)' : 'var(--color-error)'} strokeWidth={1.5} fillOpacity={0.06} fill={isSensexPos ? 'var(--color-success)' : 'var(--color-error)'} />
                     </AreaChart>
                   </ResponsiveContainer>

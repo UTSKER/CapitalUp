@@ -41,7 +41,8 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
         });
         const result = await res.json();
         if (res.ok) {
-          const cash = Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+          const cash = Number(result.data?.summary?.balance ?? 10000);
+          setCashBalance(cash);
           const holdingsVal = Number(result.data?.summary?.current_value || 0);
           const totalVal = cash + holdingsVal;
           setPortfolioValue(totalVal);
@@ -59,7 +60,6 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
     fetchPortfolio();
 
     const handleBalanceChanged = () => {
-      setCashBalance(Number(localStorage.getItem('capitalup-cash-balance') || 10000));
       fetchPortfolio();
     };
 

@@ -22,7 +22,31 @@ const {
 
 const { publisher } = require("../../../config/redis");
 
-async function refreshMarketData() {
+function isIndianMarketOpen() {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const istTime = new Date(utc + (3600000 * 5.5));
+  const day = istTime.getDay();
+  const hours = istTime.getHours();
+  const minutes = istTime.getMinutes();
+
+  if (day === 0 || day === 6) {
+    return false;
+  }
+
+  const timeInMinutes = (hours * 60) + minutes;
+  const marketStart = (9 * 60) + 15; // 9:15 AM
+  const marketEnd = (15 * 60) + 30;  // 3:30 PM
+
+  return timeInMinutes >= marketStart && timeInMinutes <= marketEnd;
+}
+
+async function refreshMarketData(force = false) {
+  if (!force && !isIndianMarketOpen()) {
+    console.log("Indian stock markets are closed. Skipping live price updates.");
+    return;
+  }
+
   const symbols = await getTrackedStockSymbols();
 
   if (!symbols.length) {

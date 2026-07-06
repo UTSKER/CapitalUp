@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'motion/react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, YAxis, ResponsiveContainer } from 'recharts';
 import {
   ArrowUpRight, ArrowRight, Shield, Zap, BarChart3,
   Eye, FileText, TrendingUp, Star, Globe, CheckCircle, Lock,
   Cpu, ChevronRight, ChevronUp } from
 'lucide-react';
+import socket from '../../services/socket';
 
 /* ─── CSS ─────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
@@ -40,24 +41,33 @@ const GLOBAL_CSS = `
   .tx-notif { animation: tx-notification-in 0.4s ease forwards; }
 `;
 
+const isIndianMarketOpen = () => {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const istTime = new Date(utc + istOffset);
+
+  const day = istTime.getDay();
+  const hours = istTime.getHours();
+  const minutes = istTime.getMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+
+  const isWeekday = day >= 1 && day <= 5;
+  const isMarketHours = timeInMinutes >= 555 && timeInMinutes <= 930;
+
+  return isWeekday && isMarketHours;
+};
+
 /* ─── DATA ──────────────────────────────────────────────────────── */
-const TICKER_ITEMS = [
-  { label: 'S&P 500', value: '5,248.32', change: '+0.64%', up: true },
-  { label: 'NASDAQ', value: '16,742.45', change: '+1.12%', up: true },
-  { label: 'DOW', value: '39,127.80', change: '+0.23%', up: true },
-  { label: 'AAPL', value: '189.87', change: '+2.34%', up: true },
-  { label: 'MSFT', value: '415.23', change: '+0.87%', up: true },
-  { label: 'NVDA', value: '876.50', change: '+4.12%', up: true },
-  { label: 'GOOGL', value: '178.42', change: '-0.23%', up: false },
-  { label: 'TSLA', value: '248.30', change: '-1.87%', up: false },
-  { label: 'META', value: '512.40', change: '+1.43%', up: true },
-  { label: 'JPM', value: '201.45', change: '+0.62%', up: true },
-  { label: 'GLD', value: '2,341.20', change: '+0.53%', up: true },
-  { label: '10Y Yield', value: '4.312%', change: '-0.55%', up: false },
-  { label: 'EUR/USD', value: '1.0842', change: '+0.18%', up: true },
-  { label: 'VIX', value: '14.82', change: '-3.24%', up: false },
-  { label: 'BRK.B', value: '418.70', change: '+0.34%', up: true },
-  { label: 'AMZN', value: '192.65', change: '+1.44%', up: true }
+const INITIAL_INDIAN_MARKET_DATA = [
+  { symbol: '^NSEI', label: 'NIFTY 50', value: '24,300.50', change: '+0.45%', up: true },
+  { symbol: '^BSESN', label: 'SENSEX', value: '79,900.20', change: '+0.42%', up: true },
+  { symbol: 'RELIANCE.NS', label: 'Reliance', value: '3,120.40', change: '+1.20%', up: true },
+  { symbol: 'TCS.NS', label: 'TCS', value: '3,980.15', change: '+0.75%', up: true },
+  { symbol: 'HDFCBANK.NS', label: 'HDFC Bank', value: '1,650.80', change: '-0.35%', up: false },
+  { symbol: 'ICICIBANK.NS', label: 'ICICI Bank', value: '1,120.50', change: '+0.85%', up: true },
+  { symbol: 'INFY.NS', label: 'Infosys', value: '1,540.20', change: '+0.92%', up: true },
+  { symbol: 'SBIN.NS', label: 'SBI', value: '840.45', change: '-0.42%', up: false }
 ];
 
 const HERO_CHART = Array.from({ length: 60 }, (_, i) => {
@@ -67,13 +77,6 @@ const HERO_CHART = Array.from({ length: 60 }, (_, i) => {
   return { i, v: Math.round(trend + noise) };
 });
 
-const HERO_POSITIONS = [
-  { ticker: 'NVDA', price: '876.50', pct: '+4.12%', barW: '88%', up: true },
-  { ticker: 'AAPL', price: '189.87', pct: '+2.34%', barW: '72%', up: true },
-  { ticker: 'MSFT', price: '415.23', pct: '+0.87%', barW: '56%', up: true },
-  { ticker: 'GOOGL', price: '178.42', pct: '-0.23%', barW: '18%', up: false }
-];
-
 const ALLOCATION = [
   { label: 'Equities', pct: 65, color: 'var(--color-accent)' },
   { label: 'Fixed Income', pct: 20, color: 'var(--color-success)' },
@@ -82,8 +85,8 @@ const ALLOCATION = [
 ];
 
 const STATS = [
-  { value: '$14.2B+', label: 'Assets Under Management', sub: '+$1.2B this quarter' },
-  { value: '180K+', label: 'Active Investors', sub: 'Across 47 countries' },
+  { value: '₹1,20,000 Cr+', label: 'Assets Under Management', sub: '+₹10,000 Cr this quarter' },
+  { value: '180K+', label: 'Active Investors', sub: 'Across India' },
   { value: '0.02%', label: 'Average Annual Fee', sub: 'vs industry avg 0.85%' },
   { value: '99.99%', label: 'Platform Uptime', sub: 'Backed by SLA' }
 ];
@@ -104,15 +107,15 @@ const TESTIMONIALS = [
 ];
 
 /* ─── TICKER ────────────────────────────────────────────────────── */
-function MarketTicker() {
-  const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
+function MarketTicker({ items = [] }) {
+  const doubleItems = [...items, ...items];
   return (
     <div style={{ background: '#0D0F11', borderBottom: '1px solid var(--color-white-0.05)', height: '30px', overflow: 'hidden', display: 'flex', alignItems: 'center', position: 'relative', zIndex: 102 }}>
       {/* fade edges */}
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '60px', background: 'linear-gradient(90deg, #0D0F11, transparent)', zIndex: 2, pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '60px', background: 'linear-gradient(-90deg, #0D0F11, transparent)', zIndex: 2, pointerEvents: 'none' }} />
       <div className="tx-ticker" style={{ display: 'flex', whiteSpace: 'nowrap', alignItems: 'center' }}>
-        {items.map((item, i) =>
+        {doubleItems.map((item, i) =>
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 20px', borderRight: '1px solid var(--color-white-0.04)' }}>
             <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-dim)', letterSpacing: '0.04em' }}>{item.label}</span>
             <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: 'var(--color-text-sub)', fontWeight: 400 }}>{item.value}</span>
@@ -196,7 +199,16 @@ function Nav({ onNavigate }) {
 }
 
 /* ─── HERO DASHBOARD PREVIEW ──────────────────────────────────────── */
-function HeroDashboard() {
+function HeroDashboard({ positions = [], niftyItem = {}, relianceItem = {}, niftyChartData = [] }) {
+  const marketOpen = isIndianMarketOpen();
+  let dotColor = 'var(--color-text-muted)';
+  let statusText = 'Closed';
+  
+  if (marketOpen) {
+    statusText = 'Live';
+    dotColor = niftyItem.up ? 'var(--color-success)' : 'var(--color-error)';
+  }
+
   return (
     <div style={{ position: 'relative', flex: '0 0 54%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {/* Ambient glow behind card */}
@@ -244,35 +256,41 @@ function HeroDashboard() {
           </div>
         </div>
 
-        {/* Portfolio header */}
+        {/* Nifty 50 / Reliance header */}
         <div style={{ padding: '18px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '5px' }}>Total Portfolio Value</div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '26px', fontWeight: 500, color: 'var(--color-text-main)', letterSpacing: '-0.5px', marginBottom: '5px' }}>$2,847,392.50</div>
+            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '5px' }}>NIFTY 50 INDEX</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '26px', fontWeight: 500, color: 'var(--color-text-main)', letterSpacing: '-0.5px', marginBottom: '5px' }}>₹{niftyItem.value || '24,300.50'}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--color-success-0.1)', border: '1px solid var(--color-success-0.2)', borderRadius: '5px', padding: '3px 8px' }}>
-                <ArrowUpRight size={11} color="var(--color-success)" />
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: 'var(--color-success)', fontWeight: 500 }}>+$24,839.20 · +0.88%</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: niftyItem.up ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)', border: `1px solid ${niftyItem.up ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`, borderRadius: '5px', padding: '3px 8px' }}>
+                <ArrowUpRight size={11} color={niftyItem.up ? "var(--color-success)" : "var(--color-error)"} style={{ transform: niftyItem.up ? 'none' : 'rotate(90deg)' }} />
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: niftyItem.up ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>{niftyItem.change || '+0.45%'}</span>
               </div>
               <span style={{ fontSize: '10px', color: 'var(--color-text-dim)' }}>today</span>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div className="tx-live-dot" style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--color-success)', flexShrink: 0 }} />
-            <span style={{ fontSize: '10px', color: 'var(--color-success)', fontWeight: 500 }}>Live</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div className={marketOpen ? "tx-live-dot" : ""} style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+              <span style={{ fontSize: '10px', color: marketOpen ? (niftyItem.up ? 'var(--color-success)' : 'var(--color-error)') : 'var(--color-text-muted)', fontWeight: 600 }}>{statusText}</span>
+            </div>
+            <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '2px' }}>RELIANCE</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12.5px', color: 'var(--color-text-main)', fontWeight: 600 }}>₹{relianceItem.value || '3,120.40'}</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: relianceItem.up ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>{relianceItem.change || '+1.20%'}</div>
           </div>
         </div>
 
         {/* Area chart */}
         <div style={{ height: '110px', paddingBottom: '4px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={HERO_CHART} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            <AreaChart data={niftyChartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="hg1" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.28} />
                   <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
                 </linearGradient>
               </defs>
+              <YAxis type="number" domain={['dataMin - 30', 'dataMax + 30']} hide={true} />
               <Area type="monotone" dataKey="v" stroke="var(--color-accent)" strokeWidth={1.8} fill="url(#hg1)" dot={false}
                 activeDot={{ r: 3, fill: 'var(--color-accent)', strokeWidth: 0 }} />
             </AreaChart>
@@ -288,7 +306,7 @@ function HeroDashboard() {
           <div style={{ padding: '14px 16px 16px', borderRight: '1px solid var(--color-white-0.05)' }}>
             <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Top Positions</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {HERO_POSITIONS.map((p) =>
+              {positions.map((p) =>
                 <div key={p.ticker} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'var(--color-white-0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: 'var(--color-text-muted)', flexShrink: 0 }}>{p.ticker.slice(0, 2)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -323,65 +341,15 @@ function HeroDashboard() {
           </div>
         </div>
       </div>
-
-      {/* Floating market card (bottom-left) */}
-      <motion.div
-        initial={{ opacity: 0, y: 20, x: -10 }}
-        animate={{ opacity: 1, y: 0, x: 0 }}
-        transition={{ delay: 0.8, duration: 0.6 }}
-        style={{
-          position: 'absolute', bottom: '-16px', left: '-12px', zIndex: 3,
-          background: 'var(--color-bg-panel-0.97)', border: '1px solid var(--color-white-0.1)',
-          borderRadius: '12px', padding: '12px 16px',
-          boxShadow: '0 16px 40px var(--color-black-0.6)'
-        }}>
-        
-        <div style={{ fontSize: '9px', color: 'var(--color-text-dim)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '8px' }}>Markets</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 18px' }}>
-          {[{ l: 'S&P 500', v: '5,248', c: '+0.64%', up: true }, { l: 'NASDAQ', v: '16,742', c: '+1.12%', up: true }, { l: 'DOW', v: '39,127', c: '+0.23%', up: true }, { l: 'VIX', v: '14.82', c: '-3.24%', up: false }].map((m) =>
-            <div key={m.l}>
-              <div style={{ fontSize: '9px', color: 'var(--color-text-dim)', marginBottom: '2px' }}>{m.l}</div>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--color-text-main)', fontWeight: 500 }}>{m.v}</div>
-              <div style={{ fontSize: '9px', color: m.up ? 'var(--color-success)' : 'var(--color-error)', marginTop: '1px' }}>{m.c}</div>
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Trade notification (top-right) */}
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1.2, duration: 0.5 }}
-        className="tx-notif"
-        style={{
-          position: 'absolute', top: '-14px', right: '-10px', zIndex: 3,
-          background: 'var(--color-bg-panel-0.97)', border: '1px solid var(--color-success-0.25)',
-          borderRadius: '10px', padding: '10px 14px',
-          boxShadow: '0 12px 32px var(--color-black-0.5)',
-          minWidth: '180px'
-        }}>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: 'var(--color-success-0.12)', border: '1px solid var(--color-success-0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <ArrowUpRight size={13} color="var(--color-success)" />
-          </div>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '1px' }}>NVDA · Buy Executed</div>
-            <div style={{ fontSize: '10px', color: 'var(--color-success)' }}>+15 shares · $876.50</div>
-          </div>
-        </div>
-      </motion.div>
     </div>
   );
 }
 
-/* ─── HERO SECTION ───────────────────────────────────────────────── */
-function Hero({ onNavigate, onShowPreview }) {
+function Hero({ onNavigate, onShowPreview, positions = [], niftyItem, relianceItem, niftyChartData }) {
   return (
     <section style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center',
-      padding: '120px 80px 80px', position: 'relative', overflow: 'hidden', gap: '48px'
+      minHeight: 'calc(100vh - 60px)', display: 'flex', alignItems: 'center',
+      padding: '40px 80px 60px', position: 'relative', overflow: 'hidden', gap: '48px'
     }}>
       {/* Background */}
       <div style={{
@@ -484,7 +452,7 @@ function Hero({ onNavigate, onShowPreview }) {
         style={{ flex: '0 0 54%', position: 'relative', zIndex: 1, cursor: 'pointer' }}
         whileHover={{ scale: 1.015, filter: 'brightness(1.04)' }}
       >
-        <HeroDashboard />
+        <HeroDashboard positions={positions} niftyItem={niftyItem} relianceItem={relianceItem} niftyChartData={niftyChartData} />
       </motion.div>
     </section>
   );
@@ -867,8 +835,17 @@ function Footer({ onNavigate }) {
 }
 
 /* ─── PREVIEW MODAL ────────────────────────────────────────────────── */
-function PreviewModal({ isOpen, onClose, onRegister }) {
+function PreviewModal({ isOpen, onClose, onRegister, positions = [], niftyItem = {}, relianceItem = {}, niftyChartData = [] }) {
   if (!isOpen) return null;
+
+  const marketOpen = isIndianMarketOpen();
+  let dotColor = 'var(--color-text-muted)';
+  let statusText = 'Closed';
+  
+  if (marketOpen) {
+    statusText = 'Live';
+    dotColor = niftyItem.up ? 'var(--color-success)' : 'var(--color-error)';
+  }
 
   return (
     <div 
@@ -901,7 +878,7 @@ function PreviewModal({ isOpen, onClose, onRegister }) {
           position: 'relative',
           width: '100%',
           maxWidth: '720px',
-          background: 'var(--color-bg-panel-0.98)',
+          background: 'var(--color-bg-base)',
           border: '1px solid var(--color-white-0.12)',
           borderRadius: '20px',
           boxShadow: '0 32px 80px var(--color-black-0.9), 0 0 60px var(--color-accent-0.15)',
@@ -946,7 +923,7 @@ function PreviewModal({ isOpen, onClose, onRegister }) {
         {/* Modal Content */}
         <div style={{ padding: '24px', maxHeight: '70vh', overflowY: 'auto' }}>
           <div style={{
-            background: 'var(--color-bg-panel-0.96)',
+            background: 'var(--color-bg-card)',
             border: '1px solid var(--color-white-0.1)',
             borderRadius: '18px',
             boxShadow: '0 0 0 1px var(--color-white-0.04), 0 24px 60px -12px var(--color-black-0.8)',
@@ -980,35 +957,41 @@ function PreviewModal({ isOpen, onClose, onRegister }) {
               </div>
             </div>
 
-            {/* Portfolio header */}
+            {/* Nifty 50 / Reliance header */}
             <div style={{ padding: '18px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '5px' }}>Total Portfolio Value</div>
-                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '26px', fontWeight: 500, color: 'var(--color-text-main)', letterSpacing: '-0.5px', marginBottom: '5px' }}>$2,847,392.50</div>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '5px' }}>NIFTY 50 INDEX</div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '26px', fontWeight: 500, color: 'var(--color-text-main)', letterSpacing: '-0.5px', marginBottom: '5px' }}>₹{niftyItem.value || '24,300.50'}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--color-success-0.1)', border: '1px solid var(--color-success-0.2)', borderRadius: '5px', padding: '3px 8px' }}>
-                    <ArrowUpRight size={11} color="var(--color-success)" />
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: 'var(--color-success)', fontWeight: 500 }}>+$24,839.20 · +0.88%</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: niftyItem.up ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)', border: `1px solid ${niftyItem.up ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`, borderRadius: '5px', padding: '3px 8px' }}>
+                    <ArrowUpRight size={11} color={niftyItem.up ? "var(--color-success)" : "var(--color-error)"} style={{ transform: niftyItem.up ? 'none' : 'rotate(90deg)' }} />
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: niftyItem.up ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>{niftyItem.change || '+0.45%'}</span>
                   </div>
                   <span style={{ fontSize: '10px', color: 'var(--color-text-dim)' }}>today</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <div className="tx-live-dot" style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--color-success)', flexShrink: 0 }} />
-                <span style={{ fontSize: '10px', color: 'var(--color-success)', fontWeight: 500 }}>Live</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div className={marketOpen ? "tx-live-dot" : ""} style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                  <span style={{ fontSize: '10px', color: marketOpen ? (niftyItem.up ? 'var(--color-success)' : 'var(--color-error)') : 'var(--color-text-muted)', fontWeight: 600 }}>{statusText}</span>
+                </div>
+                <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '2px' }}>RELIANCE</div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12.5px', color: 'var(--color-text-main)', fontWeight: 600 }}>₹{relianceItem.value || '3,120.40'}</div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: relianceItem.up ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>{relianceItem.change || '+1.20%'}</div>
               </div>
             </div>
 
             {/* Area chart */}
             <div style={{ height: '110px', paddingBottom: '4px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={HERO_CHART} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                <AreaChart data={niftyChartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id="hg1_modal" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.28} />
                       <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
+                  <YAxis type="number" domain={['dataMin - 30', 'dataMax + 30']} hide={true} />
                   <Area type="monotone" dataKey="v" stroke="var(--color-accent)" strokeWidth={1.8} fill="url(#hg1_modal)" dot={false}
                     activeDot={{ r: 3, fill: 'var(--color-accent)', strokeWidth: 0 }} />
                 </AreaChart>
@@ -1024,7 +1007,7 @@ function PreviewModal({ isOpen, onClose, onRegister }) {
               <div style={{ padding: '14px 16px 16px', borderRight: '1px solid var(--color-white-0.05)' }}>
                 <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Top Positions</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {HERO_POSITIONS.map((p) =>
+                  {positions.map((p) =>
                     <div key={p.ticker} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'var(--color-white-0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: 'var(--color-text-muted)', flexShrink: 0 }}>{p.ticker.slice(0, 2)}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1105,27 +1088,143 @@ function PreviewModal({ isOpen, onClose, onRegister }) {
 
 /* ─── MAIN ───────────────────────────────────────────────────────────── */
 export function Landing({ onNavigate }) {
-  const [bottomTickerVisible, setBottomTickerVisible] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [marketData, setMarketData] = useState(INITIAL_INDIAN_MARKET_DATA);
+  const [niftyChartData, setNiftyChartData] = useState(() => {
+    return Array.from({ length: 60 }, (_, i) => {
+      const base = 24100, end = 24300.50;
+      const trend = base + (end - base) * i / 59;
+      const noise = Math.sin(i * 0.9) * 80 + Math.cos(i * 1.6) * 40;
+      return { i, v: Math.round(trend + noise) };
+    });
+  });
   
   const showPreview = () => setIsPreviewOpen(true);
   const closePreview = () => setIsPreviewOpen(false);
 
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/stocks`);
+        const result = await res.json();
+        if (result.success && Array.isArray(result.data)) {
+          setMarketData((prevData) => {
+            return prevData.map((item) => {
+              const live = result.data.find(s => s.symbol === item.symbol);
+              if (live && live.lastPrice != null) {
+                const price = Number(live.lastPrice);
+                const prevClose = Number(live.previousClose) || price;
+                const change = price - prevClose;
+                const pct = prevClose ? (change / prevClose) * 100 : 0;
+                const up = change >= 0;
+
+                return {
+                  ...item,
+                  value: price.toLocaleString('en-IN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  }),
+                  change: `${up ? '+' : ''}${pct.toFixed(2)}%`,
+                  up
+                };
+              }
+              return item;
+            });
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch initial market data:', err);
+      }
+    };
+
+    const fetchNiftyHistory = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/stocks/^NSEI/history`);
+        const result = await res.json();
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+          const chartData = result.data.map((pt, idx) => ({ i: idx, v: Number(pt.price) }));
+          setNiftyChartData(chartData);
+        }
+      } catch (err) {
+        console.error('Failed to fetch Nifty 50 history:', err);
+      }
+    };
+
+    fetchInitialData();
+    fetchNiftyHistory();
+
+    const handleMarketUpdate = (payload) => {
+      if (!payload || !payload.symbol) return;
+      const { symbol, stockData } = payload;
+      if (!stockData || stockData.price == null) return;
+
+      setMarketData((prevData) => {
+        return prevData.map((item) => {
+          if (item.symbol === symbol) {
+            const price = stockData.price;
+            const prevClose = stockData.previousClose || price;
+            const change = price - prevClose;
+            const pct = prevClose ? (change / prevClose) * 100 : 0;
+            const up = change >= 0;
+            
+            return {
+              ...item,
+              value: price.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              }),
+              change: `${up ? '+' : ''}${pct.toFixed(2)}%`,
+              up
+            };
+          }
+          return item;
+        });
+      });
+
+      if (symbol === '^NSEI') {
+        setNiftyChartData((prevChart) => {
+          const nextVal = { i: prevChart.length, v: Number(stockData.price) };
+          return [...prevChart.slice(-99), nextVal].map((pt, idx) => ({ ...pt, i: idx }));
+        });
+      }
+    };
+
+    socket.on('market:update', handleMarketUpdate);
+    return () => {
+      socket.off('market:update', handleMarketUpdate);
+    };
+  }, []);
+
+  const niftyItem = marketData.find(item => item.symbol === '^NSEI') || { value: '24,300.50', change: '+0.45%', up: true };
+  const relianceItem = marketData.find(item => item.symbol === 'RELIANCE.NS') || { value: '3,120.40', change: '+1.20%', up: true };
+
+  const heroPositions = marketData
+    .filter(item => ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS'].includes(item.symbol))
+    .map((item, index) => {
+      const barWidths = ['88%', '72%', '56%', '18%'];
+      return {
+        ticker: item.label,
+        price: item.value,
+        pct: item.change,
+        barW: barWidths[index] || '50%',
+        up: item.up
+      };
+    });
+
   return (
-    <div style={{ fontFamily: 'DM Sans, system-ui, sans-serif', background: 'var(--color-bg-base)', color: 'var(--color-text-main)', overflowX: 'hidden', paddingBottom: bottomTickerVisible ? '70px' : '0' }}>
+    <div style={{ fontFamily: 'DM Sans, system-ui, sans-serif', background: 'var(--color-bg-base)', color: 'var(--color-text-main)', overflowX: 'hidden' }}>
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS }} />
-      <MarketTicker />
+      <MarketTicker items={marketData} />
       <Nav onNavigate={onNavigate} />
-      <Hero onNavigate={onNavigate} onShowPreview={showPreview} />
+      <Hero onNavigate={onNavigate} onShowPreview={showPreview} positions={heroPositions} niftyItem={niftyItem} relianceItem={relianceItem} niftyChartData={niftyChartData} />
       <StatsBar />
       <FeaturesSection />
       <PlatformPreview onShowPreview={showPreview} />
       <TestimonialsSection />
       <CTASection onNavigate={onNavigate} />
       <Footer onNavigate={onNavigate} />
-      <BottomTicker isVisible={bottomTickerVisible} onToggle={() => setBottomTickerVisible(!bottomTickerVisible)} />
       
-      <PreviewModal isOpen={isPreviewOpen} onClose={closePreview} onRegister={() => onNavigate('register')} />
+      <PreviewModal isOpen={isPreviewOpen} onClose={closePreview} onRegister={() => onNavigate('register')} positions={heroPositions} niftyItem={niftyItem} relianceItem={relianceItem} niftyChartData={niftyChartData} />
     </div>
   );
 }

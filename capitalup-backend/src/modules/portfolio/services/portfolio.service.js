@@ -1,3 +1,5 @@
+const { getUserBalance } = require("./balance.service");
+
 const {
   findHoldingBySymbol,
   createHolding,
@@ -134,6 +136,8 @@ async function getPortfolio(
       userId
     );
 
+  const balance = await getUserBalance(userId);
+
   let totalInvested = 0;
 
   let currentValue = 0;
@@ -254,6 +258,7 @@ async function getPortfolio(
         Number(
           totalProfitLossPercentage
         ),
+      balance,
     },
 
     holdings: portfolio,

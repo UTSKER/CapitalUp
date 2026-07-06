@@ -12,6 +12,9 @@ async function getUserProfile(userId) {
     throw new Error("User not found");
   }
 
+  const { getUserBalance } = require("../../portfolio/services/balance.service");
+  profile.balance = await getUserBalance(userId);
+
   return profile;
 }
 
@@ -173,7 +176,12 @@ async function updateUserProfile(
     );
   }
 
-  return getProfileByUserId(userId);
+  const profile = await getProfileByUserId(userId);
+  if (profile) {
+    const { getUserBalance } = require("../../portfolio/services/balance.service");
+    profile.balance = await getUserBalance(userId);
+  }
+  return profile;
 }
 
 module.exports = {

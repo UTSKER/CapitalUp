@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, Star, Search, Bell } from 'lucide-react';
+import { applyMarketUpdateToStock, listenToMarketUpdates } from '../../../services/marketRealtime';
 
 export function WatchlistPanel() {
   const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -34,9 +35,23 @@ export function WatchlistPanel() {
       fetchWatchlist();
     };
 
+    const stopRealtime = listenToMarketUpdates(({ symbol, stockData }) => {
+      setWatchlist((prevWatchlist) => prevWatchlist.map((item) => {
+        if (item.symbol !== symbol) return item;
+        const updatedItem = applyMarketUpdateToStock(item, { symbol, stockData });
+        return {
+          ...item,
+          ...updatedItem,
+          price: Number(updatedItem.lastPrice ?? updatedItem.price ?? item.price ?? stockData.price),
+          previousClose: Number(updatedItem.previousClose ?? item.previousClose ?? stockData.previousClose ?? stockData.price),
+        };
+      }));
+    });
+
     window.addEventListener('watchlistChanged', handleWatchlistChanged);
     return () => {
       window.removeEventListener('watchlistChanged', handleWatchlistChanged);
+      stopRealtime();
     };
   }, [API_BASE_URL, token]);
 

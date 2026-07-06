@@ -114,8 +114,8 @@ async function startServer() {
 
     await startSubscriber();
 
-    //startMarketDataJob();
-   // startDayOrderExpiryJob();
+    startMarketDataJob();
+    startDayOrderExpiryJob();
 
     console.log("Market Data Jobs Started");
 

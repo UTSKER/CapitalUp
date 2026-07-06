@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Search, TrendingUp, TrendingDown, Wallet, ShieldAlert, Star, X } from 'lucide-react';
+import { listenToMarketUpdates } from '../../../services/marketRealtime';
 
 export function MarketsView({
   onNavigate,
@@ -142,6 +143,29 @@ export function MarketsView({
     setTradeSuccess('');
     setTradeError('');
   }, [selectedStock, API_BASE_URL, token]);
+
+  useEffect(() => {
+    if (!selectedStock?.symbol) return undefined;
+
+    const stopRealtime = listenToMarketUpdates(({ symbol, stockData }) => {
+      if (symbol !== selectedStock.symbol) return;
+      const nextPrice = Number(stockData.price);
+      const timestamp = stockData.updatedAt || new Date().toISOString();
+
+      setHistory((prevHistory) => {
+        if (!prevHistory.length) return [{ price: nextPrice, timestamp }];
+        const next = [...prevHistory];
+        next[next.length - 1] = {
+          ...next[next.length - 1],
+          price: nextPrice,
+          timestamp,
+        };
+        return next;
+      });
+    });
+
+    return stopRealtime;
+  }, [selectedStock?.symbol]);
 
   // Handle balance updates
   const updateBalance = (newBalance) => {

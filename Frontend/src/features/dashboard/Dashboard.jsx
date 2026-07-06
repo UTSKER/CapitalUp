@@ -12,6 +12,7 @@ import { KycVerification } from './components/KycVerification';
 import { PersonalInformation } from './components/PersonalInformation';
 import { MarketsView } from './components/MarketsView';
 import { OrdersView } from './components/OrdersView';
+import { listenToMarketUpdates, applyMarketUpdateToStock } from '../../services/marketRealtime';
 
 const riskMetrics = [
   { label: 'Beta (1Y)', value: '0.94', neutral: true },
@@ -64,7 +65,19 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
       });
       const result = await res.json();
       if (result.success) {
-        setStocks(result.data);
+        setStocks((prevStocks) => {
+          const nextStocks = Array.isArray(result.data) ? result.data : [];
+          const merged = [...prevStocks];
+          nextStocks.forEach((stock) => {
+            const existingIndex = merged.findIndex((item) => item.symbol === stock.symbol);
+            if (existingIndex >= 0) {
+              merged[existingIndex] = { ...merged[existingIndex], ...stock };
+            } else {
+              merged.push(stock);
+            }
+          });
+          return merged;
+        });
       }
     } catch (err) {
       console.error('Failed to fetch stocks in dashboard:', err);
@@ -74,6 +87,21 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   useEffect(() => {
     fetchStocks();
   }, [API_BASE_URL, token]);
+
+  useEffect(() => {
+    const stopListening = listenToMarketUpdates(({ symbol, stockData }) => {
+      setStocks((prevStocks) => prevStocks.map((stock) => (
+        stock.symbol === symbol ? applyMarketUpdateToStock(stock, { symbol, stockData }) : stock
+      )));
+
+      setSelectedStock((prevSelectedStock) => {
+        if (!prevSelectedStock || prevSelectedStock.symbol !== symbol) return prevSelectedStock;
+        return applyMarketUpdateToStock(prevSelectedStock, { symbol, stockData });
+      });
+    });
+
+    return stopListening;
+  }, []);
 
   const handleSelectStock = (stock, side) => {
     setSelectedStock(stock);

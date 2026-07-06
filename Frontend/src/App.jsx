@@ -4,6 +4,7 @@ import { AuthScreen } from './features/auth/AuthScreen';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import socket from "./services/socket.js";
+import { initializeMarketSocketListener } from "./services/marketRealtime.js";
 
 const viewRoutes = {
   landing: '/',
@@ -76,12 +77,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const unsubscribeRealtime = initializeMarketSocketListener();
+
     socket.on("connect", () => {
       console.log("Socket Connected:", socket.id);
-    });
-
-    socket.on("market:update", (data) => {
-      console.log("Received from backend:", data);
     });
 
     socket.on("disconnect", () => {
@@ -89,8 +88,8 @@ export default function App() {
     });
 
     return () => {
+      unsubscribeRealtime?.();
       socket.off("connect");
-      socket.off("market:update");
       socket.off("disconnect");
     };
   }, []);

@@ -34,6 +34,7 @@ const server = http.createServer(app);
 
 async function startServer() {
   try {
+    // Initialize Redis connections (uses resilient local in-memory fallback if real connection fails)
     await redisClient.connect();
     await publisher.connect();
     await subscriber.connect();
@@ -43,6 +44,29 @@ async function startServer() {
     await pool.query("SELECT NOW()");
 
     console.log("DB Connected");
+
+    // =========================================================================
+    // STARTUP DATABASE CLEANUP / RESET STEP
+    // =========================================================================
+    // This SQL statement clears out all transactional tables, order books, ledger entries,
+    // portfolios, and sets all user balances to 15000.00 for testing.
+    // Comment this block out once you want to persist your data!
+    console.warn("⚠️  Resetting all balances to 15,000 and removing all order/holding/ledger data...");
+    try {
+      await pool.query(`
+        TRUNCATE TABLE 
+          "stop_orders", "limit_orders", "orders", "portfolio_holdings",
+          "ledger_entries", "ledger_transactions", "refunds", "deposits",
+          "withdrawals", "payment_orders", "wallets" 
+        CASCADE;
+      `);
+      await pool.query(`
+        UPDATE "users" SET "balance" = 15000.00;
+      `);
+      console.log("✔ Database cleared successfully: All users have 15,000 balance and 0 shares.");
+    } catch (cleanErr) {
+      console.error("❌ Database cleanup failed during startup:", cleanErr.message);
+    }
 
     try {
       const fs = require("fs");
@@ -97,7 +121,7 @@ async function startServer() {
 
     try {
       await pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 10000.00
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0.00
       `);
       console.log("DB update check: balance column in users table is ready");
     } catch (err) {
@@ -123,10 +147,12 @@ async function startServer() {
 
     await startSubscriber();
 
-    startMarketDataJob();
+    // To enable live market data updates, uncomment the lines below:
+    // startMarketDataJob();
+    // console.log("Market Data Feed Job Started");
     startDayOrderExpiryJob();
 
-    console.log("Market Data Jobs Started");
+    console.log("Market Data Jobs Initialized");
 
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

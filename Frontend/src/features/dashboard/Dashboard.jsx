@@ -12,6 +12,7 @@ import { KycVerification } from './components/KycVerification';
 import { PersonalInformation } from './components/PersonalInformation';
 import { MarketsView } from './components/MarketsView';
 import { OrdersView } from './components/OrdersView';
+import { DepositModal } from './components/DepositModal';
 import { listenToMarketUpdates, applyMarketUpdateToStock } from '../../services/marketRealtime';
 
 const riskMetrics = [
@@ -50,6 +51,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   const [activeTab, setActiveTab] = useState(() => getTabFromPath(window.location.pathname));
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
 
   const [stocks, setStocks] = useState([]);
   const [selectedStock, setSelectedStock] = useState(null);
@@ -122,7 +124,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
       });
       const result = await res.json();
       if (res.ok) {
-        const cash = Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+        const cash = Number(localStorage.getItem('capitalup-cash-balance') || 15000);
         const holdingsVal = Number(result.data?.summary?.current_value || 0);
         setPortfolioValue(cash + holdingsVal);
 
@@ -189,7 +191,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
       }}>
       
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} onTabChange={changeTab} onNavigate={onNavigate} />
+      <Sidebar activeTab={activeTab} onTabChange={changeTab} onNavigate={onNavigate} onAddFunds={() => setDepositModalOpen(true)} />
 
       {/* Main content */}
       <div style={{ flex: 1, marginLeft: '232px', minWidth: 0 }}>
@@ -772,6 +774,9 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
           )}
         </div>
       </div>
+      
+      {/* Deposit Modal */}
+      <DepositModal isOpen={depositModalOpen} onClose={() => setDepositModalOpen(false)} />
     </div>
   );
 }

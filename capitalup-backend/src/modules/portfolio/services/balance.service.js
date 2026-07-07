@@ -24,7 +24,7 @@ async function getUserBalance(userId) {
     [userId]
   );
 
-  const balance = result.rows[0] ? Number(result.rows[0].balance) : 10000.00;
+  const balance = result.rows[0] ? Number(result.rows[0].balance) : 15000.00;
 
   // Cache in Redis
   try {

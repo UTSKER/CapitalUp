@@ -33,6 +33,8 @@ async function getStockPrice(symbol) {
     const quote =
       await yahooFinance.quote(symbol);
 
+    console.log(`[Yahoo Finance API Fetch] Symbol: ${symbol} | Price: ₹${quote.regularMarketPrice} | PrevClose: ₹${quote.regularMarketPreviousClose}`);
+
     if (
       !quote ||
       quote.regularMarketPrice == null
@@ -80,6 +82,22 @@ async function getAllStocks() {
   );
 }
 
+// Helper to format a date to the Asia/Kolkata timezone object representation
+function getKolkataDate(date) {
+  return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+}
+
+// Simple deterministic pseudo-random number generator based on seed (symbol + step index)
+function getDeterministicNoise(symbol, index) {
+  let hash = 0;
+  const str = symbol + index;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const val = Math.abs(Math.sin(hash) * 1000) % 1;
+  return val;
+}
+
 async function getStockHistoryService(symbol) {
   let points = [];
   try {
@@ -88,7 +106,62 @@ async function getStockHistoryService(symbol) {
     console.error(`Failed to get history for ${symbol}:`, err.message);
   }
 
+  // If there is no DB history, backfill it using strict Indian Market Hours (9:15 AM - 3:30 PM IST)
   if (!points || points.length < 30) {
+    const now = new Date();
+    const istNow = getKolkataDate(now);
+    const day = istNow.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const hour = istNow.getHours();
+    const minute = istNow.getMinutes();
+
+    let targetDate = new Date(now);
+    let isMarketLive = false;
+
+    // 1. Determine the target trading day based on day of week and current IST time
+    if (day === 0) { // Sunday -> use preceding Friday
+      targetDate.setDate(targetDate.getDate() - 2);
+    } else if (day === 6) { // Saturday -> use preceding Friday
+      targetDate.setDate(targetDate.getDate() - 1);
+    } else {
+      // Weekday (Mon - Fri)
+      const currentTimeInMinutes = hour * 60 + minute;
+      const marketOpenInMinutes = 9 * 60 + 15;
+      const marketCloseInMinutes = 15 * 60 + 30;
+
+      if (currentTimeInMinutes < marketOpenInMinutes) {
+        // Before market opens, show the preceding market session
+        if (day === 1) { // Monday before 9:15 AM -> show Friday
+          targetDate.setDate(targetDate.getDate() - 3);
+        } else { // Tue - Fri before 9:15 AM -> show yesterday
+          targetDate.setDate(targetDate.getDate() - 1);
+        }
+      } else if (currentTimeInMinutes >= marketOpenInMinutes && currentTimeInMinutes <= marketCloseInMinutes) {
+        // During market hours
+        isMarketLive = true;
+      } else {
+        // After market closes -> show the full day today
+      }
+    }
+
+    // 2. Set start and end boundaries in UTC corresponding to IST market hours
+    const targetIst = getKolkataDate(targetDate);
+    const targetYear = targetIst.getFullYear();
+    const targetMonth = targetIst.getMonth();
+    const targetDay = targetIst.getDate();
+
+    // 9:15 AM IST is 3:45 AM UTC
+    const marketStartTime = new Date(Date.UTC(targetYear, targetMonth, targetDay, 3, 45, 0));
+    
+    let marketEndTime;
+    if (isMarketLive) {
+      // Live market: chart up to the current moment
+      marketEndTime = new Date(now);
+    } else {
+      // Closed: chart up to 3:30 PM IST (10:00 AM UTC)
+      marketEndTime = new Date(Date.UTC(targetYear, targetMonth, targetDay, 10, 0, 0));
+    }
+
+    // 3. Resolve starting stock price
     let currentPrice = 100;
     try {
       const cached = await getStockData(symbol);
@@ -99,19 +172,26 @@ async function getStockHistoryService(symbol) {
         currentPrice = quote.price;
       }
     } catch (err) {
-      // Fallback if APIs are offline
+      // Fallback
     }
 
-    const backfillCount = 30 - (points ? points.length : 0);
-    const backfilled = [];
-    const now = Date.now();
+    // 4. Generate points at 10-minute intervals
+    const startMs = marketStartTime.getTime();
+    const endMs = marketEndTime.getTime();
+    const intervalMs = 10 * 60 * 1000;
+    
     let price = currentPrice * 0.95;
-    for (let i = 0; i < backfillCount; i++) {
-      const time = new Date(now - (backfillCount - i) * 60000).toISOString();
-      price = price * (1 + (Math.random() - 0.48) * 0.015);
+    const numSteps = Math.max(30, Math.floor((endMs - startMs) / intervalMs));
+    const backfilled = [];
+
+
+    for (let i = 0; i <= numSteps; i++) {
+      const pointTime = new Date(startMs + i * ((endMs - startMs) / numSteps));
+      const noise = getDeterministicNoise(symbol, i);
+      price = price * (1 + (noise - 0.485) * 0.012);
       backfilled.push({
         price: parseFloat(price.toFixed(2)),
-        timestamp: time,
+        timestamp: pointTime.toISOString(),
       });
     }
 

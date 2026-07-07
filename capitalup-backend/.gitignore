@@ -1,11 +1,6 @@
 # Dependencies
 node_modules/
 
-# Production builds
-dist/
-build/
-out/
-
 # Environment files
 .env
 .env.local
@@ -13,6 +8,9 @@ out/
 .env.test.local
 .env.production.local
 .env.*.local
+
+# Generated Prisma client
+/src/generated/prisma/
 
 # Logs
 *.log
@@ -23,11 +21,6 @@ yarn-error.log*
 # Editor / IDE settings
 .vscode/
 .idea/
-*.suo
-*.ntvsca*
-*.njsproj
-*.sln
-*.sw?
 
 # User Downloads / Archives
 *.zip

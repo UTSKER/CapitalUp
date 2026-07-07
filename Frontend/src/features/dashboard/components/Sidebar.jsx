@@ -14,12 +14,12 @@ const navItems = [
   { id: 'research', label: 'Research', icon: BookOpen }
 ];
 
-export function Sidebar({ activeTab, onTabChange, onNavigate }) {
+export function Sidebar({ activeTab, onTabChange, onNavigate, onAddFunds }) {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('capitalup-user') || '{}'));
   const [kycStatus, setKycStatus] = useState(() => localStorage.getItem('capitalup-kyc-status') || 'NOT_STARTED');
   
   const [cashBalance, setCashBalance] = useState(() => {
-    return Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+    return Number(localStorage.getItem('capitalup-cash-balance') || 15000);
   });
   const [portfolioValue, setPortfolioValue] = useState(0);
   const [dayGain, setDayGain] = useState(0);
@@ -41,7 +41,7 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
         });
         const result = await res.json();
         if (res.ok) {
-          const cash = Number(result.data?.summary?.balance ?? 10000);
+          const cash = Number(result.data?.summary?.balance ?? 15000);
           setCashBalance(cash);
           const holdingsVal = Number(result.data?.summary?.current_value || 0);
           const totalVal = cash + holdingsVal;
@@ -202,8 +202,36 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
           <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '4px' }}>
             Available Cash
           </div>
-          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-main)' }}>
-            ₹{cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-main)' }}>
+              ₹{cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+            <button
+              onClick={onAddFunds}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '10px',
+                fontWeight: 600,
+                color: 'var(--color-text-inverted)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                fontFamily: 'DM Sans, sans-serif',
+                boxShadow: '0 2px 6px var(--color-accent-0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+                e.currentTarget.style.transform = 'translateY(-0.5px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.transform = 'none';
+              }}
+            >
+              + Deposit
+            </button>
           </div>
         </div>
       </div>

@@ -36,7 +36,7 @@ export function MarketsView({
   const [orderSide, setOrderSide] = useState(initialOrderSide || 'BUY'); // BUY or SELL
   const [tradeError, setTradeError] = useState('');
   const [tradeSuccess, setTradeSuccess] = useState('');
-  const [virtualBalance, setVirtualBalance] = useState(10000);
+  const [virtualBalance, setVirtualBalance] = useState(15000);
 
   const fetchHoldings = async () => {
     try {
@@ -808,16 +808,18 @@ export function MarketsView({
                       <div style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleToggleWatchlist(stock)}
+                          className="btn-glass"
                           style={{
-                            background: 'none',
-                            border: 'none',
                             cursor: 'pointer',
-                            padding: '4px',
-                            borderRadius: '50%'
+                            padding: '6px',
+                            borderRadius: '50%',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                           }}
                         >
                           <Star
-                            size={13}
+                            size={12}
                             fill={isStarred ? 'var(--color-warning)' : 'none'}
                             color={isStarred ? 'var(--color-warning)' : 'var(--color-text-dim)'}
                           />
@@ -850,7 +852,15 @@ export function MarketsView({
                     </h1>
                     <button
                       onClick={() => handleToggleWatchlist(selectedStock)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                      className="btn-glass"
+                      style={{
+                        cursor: 'pointer',
+                        padding: '8px',
+                        borderRadius: '50%',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
                     >
                       <Star
                         size={16}

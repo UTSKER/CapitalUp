@@ -17,10 +17,19 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
+
+const paymentRoutes = require("./modules/payments/routes/payments.routes");
 
 app.use("/auth", authRoutes);
 app.use("/profile", profileRoutes);
+app.use("/payments", paymentRoutes);
 
 
 // KYC Routes

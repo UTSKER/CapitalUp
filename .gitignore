@@ -61,3 +61,8 @@ Thumbs.db
 # Helper scripts
 replace_colors.py
 
+# User Downloads / Archives
+*.zip
+*.tar
+*.gz
+*.rar

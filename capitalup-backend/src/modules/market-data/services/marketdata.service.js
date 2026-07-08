@@ -23,6 +23,9 @@ const {
 const { publisher } = require("../../../config/redis");
 
 function isIndianMarketOpen() {
+  if (process.env.BYPASS_MARKET_HOURS === "true") {
+    return true;
+  }
   const now = new Date();
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
   const istTime = new Date(utc + (3600000 * 5.5));

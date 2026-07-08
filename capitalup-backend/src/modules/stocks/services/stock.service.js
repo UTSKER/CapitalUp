@@ -140,10 +140,12 @@ async function getStockHistoryService(symbol) {
     let targetDate = new Date(now);
     let isMarketLive = false;
 
+    const bypassMarketHours = process.env.BYPASS_MARKET_HOURS === "true";
+
     // 1. Determine the target trading day based on day of week and current IST time
-    if (day === 0) { // Sunday -> use preceding Friday
+    if (day === 0 && !bypassMarketHours) { // Sunday -> use preceding Friday
       targetDate.setDate(targetDate.getDate() - 2);
-    } else if (day === 6) { // Saturday -> use preceding Friday
+    } else if (day === 6 && !bypassMarketHours) { // Saturday -> use preceding Friday
       targetDate.setDate(targetDate.getDate() - 1);
     } else {
       // Weekday (Mon - Fri)
@@ -151,14 +153,14 @@ async function getStockHistoryService(symbol) {
       const marketOpenInMinutes = 9 * 60 + 15;
       const marketCloseInMinutes = 15 * 60 + 30;
 
-      if (currentTimeInMinutes < marketOpenInMinutes) {
+      if (currentTimeInMinutes < marketOpenInMinutes && !bypassMarketHours) {
         // Before market opens, show the preceding market session
         if (day === 1) { // Monday before 9:15 AM -> show Friday
           targetDate.setDate(targetDate.getDate() - 3);
         } else { // Tue - Fri before 9:15 AM -> show yesterday
           targetDate.setDate(targetDate.getDate() - 1);
         }
-      } else if (currentTimeInMinutes >= marketOpenInMinutes && currentTimeInMinutes <= marketCloseInMinutes) {
+      } else if ((currentTimeInMinutes >= marketOpenInMinutes && currentTimeInMinutes <= marketCloseInMinutes) || bypassMarketHours) {
         // During market hours
         isMarketLive = true;
       } else {

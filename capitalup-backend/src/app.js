@@ -115,5 +115,10 @@ app.use(
   )
 );
 
+// AI Routes
+const aiRoutes =require("../src/modules/ai/index.js");
+
+app.use("/api/ai", aiRoutes);
+
 
 module.exports = app;

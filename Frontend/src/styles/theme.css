@@ -603,15 +603,15 @@ input:-webkit-autofill:active {
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
 select,
 textarea {
-  border: 1.5px solid rgba(var(--color-white-rgb), 0.28) !important;
-  background: rgba(var(--color-white-rgb), 0.05) !important;
+  border: 1.5px solid rgba(var(--color-white-rgb), 0.28);
+  background: rgba(var(--color-white-rgb), 0.05);
   transition: border-color 0.2s, box-shadow 0.2s;
-  color: var(--color-text-main) !important;
+  color: var(--color-text-main);
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):focus,
 select:focus,
 textarea:focus {
-  border-color: var(--color-accent) !important;
-  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2) !important;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
 }

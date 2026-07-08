@@ -27,3 +27,9 @@ yarn-error.log*
 *.tar
 *.gz
 *.rar
+
+# Test and utility scripts
+check_defaults.js
+list_users.js
+reset.js
+

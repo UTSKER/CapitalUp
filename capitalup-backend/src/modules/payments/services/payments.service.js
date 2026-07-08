@@ -18,11 +18,17 @@ class PaymentsService {
   async getOrCreateWallet(userId, tx = prisma) {
     let wallet = await repo.findWalletByUserId(userId, tx);
     if (!wallet) {
-      wallet = await repo.createWallet(userId, tx);
-      // Sync legacy balance
-      await tx.users.update({
-        where: { user_id: BigInt(userId) },
-        data: { balance: 0.00 }
+      // Initialize wallet with the user's current PostgreSQL balance to prevent resetting it to 0
+      const user = await tx.users.findUnique({ where: { user_id: BigInt(userId) } });
+      const startingBalance = user ? Number(user.balance) : 15000.00;
+
+      wallet = await tx.wallets.create({
+        data: {
+          user_id: BigInt(userId),
+          available_balance: startingBalance,
+          hold_balance: 0.00,
+          currency: "INR"
+        }
       });
     }
     return wallet;
@@ -60,108 +66,7 @@ class PaymentsService {
 
   // Verify Deposit (Client Redirect Callback)
   async verifyDeposit(userId, payload) {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = payload;
-
-    // 1. Verify Signature
-    if (!isDummy) {
-      const generated = crypto
-        .createHmac("sha256", keySecret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest("hex");
-      if (generated !== razorpay_signature) {
-        throw new Error("Invalid payment signature");
-      }
-    }
-
-    // 2. Acquire lock to prevent concurrent webhook conflicts
-    const lockAcquired = await acquireLock(razorpay_order_id);
-    if (!lockAcquired) {
-      throw new Error("Conflict: Transaction is currently being processed");
-    }
-
-    try {
-      return await prisma.$transaction(async (tx) => {
-        // Fetch and lock order
-        const order = await repo.findPaymentOrderByOrderIdForUpdate(razorpay_order_id, tx);
-        if (!order) throw new Error("Payment order not found");
-        if (order.user_id.toString() !== userId.toString()) throw new Error("User mismatch");
-
-        // Idempotency: check if already paid
-        if (order.status === "PAID") {
-          const deposit = await repo.findDepositByPaymentId(razorpay_payment_id, tx);
-          return { success: true, alreadyProcessed: true, deposit };
-        }
-
-        // Lock wallet
-        const wallet = await repo.findWalletByUserIdForUpdate(userId, tx);
-        if (!wallet) throw new Error("Wallet not found");
-
-        // Double payment check
-        const existingDeposit = await repo.findDepositByPaymentId(razorpay_payment_id, tx);
-        if (existingDeposit) throw new Error("Duplicate Payment: Payment ID already processed");
-
-        // Create deposit record
-        const deposit = await repo.createDeposit(
-          userId,
-          wallet.id,
-          order.id,
-          razorpay_payment_id,
-          order.amount,
-          "Razorpay",
-          { client_verified: true },
-          tx
-        );
-
-        // Update payment order status
-        await repo.updatePaymentOrderStatus(razorpay_order_id, "PAID", tx);
-
-        // Update Wallet & Sync legacy balance
-        const balanceBefore = wallet.available_balance;
-        const newWallet = await repo.updateWalletBalances(wallet.id, order.amount, 0.00, tx);
-        
-        await tx.users.update({
-          where: { user_id: BigInt(userId) },
-          data: { balance: newWallet.available_balance }
-        });
-
-        // Invalidate Redis cash balance cache
-        try {
-          await redisClient.del(`user:balance:${userId}`);
-        } catch (cacheErr) {
-          console.error("Failed to clear balance cache on deposit verify:", cacheErr.message);
-        }
-
-        // Write Ledger (Double-Entry: Debit reconciliation account, Credit user liability)
-        await repo.createLedgerTransaction(
-          "DEPOSIT",
-          deposit.id,
-          `Completed deposit via Razorpay payment ${razorpay_payment_id}`,
-          [
-            {
-              walletId: wallet.id,
-              account: "ASSET:GATEWAY_RECONCILIATION",
-              entryType: "DEBIT",
-              amount: order.amount,
-              balanceBefore: 0.00, // External gate account
-              balanceAfter: 0.00
-            },
-            {
-              walletId: wallet.id,
-              account: "LIABILITY:USER_WALLET",
-              entryType: "CREDIT",
-              amount: order.amount,
-              balanceBefore: balanceBefore,
-              balanceAfter: newWallet.available_balance
-            }
-          ],
-          tx
-        );
-
-        return { success: true, deposit };
-      });
-    } finally {
-      await releaseLock(razorpay_order_id);
-    }
+    throw new Error("Webhook not connected. Deposits must be processed via secure server-to-server webhook callback.");
   }
 
   // Webhook Signature Verification

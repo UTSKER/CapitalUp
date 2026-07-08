@@ -99,6 +99,29 @@ function getDeterministicNoise(symbol, index) {
 }
 
 async function getStockHistoryService(symbol) {
+  try {
+    const chartData = await yahooFinance.chart(symbol, {
+      period1: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      interval: "5m",
+    });
+
+    if (chartData && chartData.quotes && chartData.quotes.length > 0) {
+      const realPoints = chartData.quotes
+        .filter((q) => q.close !== null && q.close !== undefined)
+        .map((q) => ({
+          price: Number((q.close || q.open || 0).toFixed(2)),
+          timestamp: new Date(q.date).toISOString(),
+        }));
+
+      if (realPoints.length > 0) {
+        console.log(`[Yahoo Finance Chart Fetch] Successfully loaded ${realPoints.length} real points for ${symbol}`);
+        return realPoints;
+      }
+    }
+  } catch (chartErr) {
+    console.error(`[Yahoo Finance Chart Fetch Failed] Using local database/fallback for ${symbol}:`, chartErr.message);
+  }
+
   let points = [];
   try {
     points = await getStockHistory(symbol);

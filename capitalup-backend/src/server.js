@@ -41,6 +41,13 @@ async function startServer() {
 
     console.log("Redis Connected");
 
+    try {
+      await redisClient.flushAll();
+      console.log("Redis Cache Flushed Successfully");
+    } catch (redisErr) {
+      console.warn("Failed to flush Redis on startup:", redisErr.message);
+    }
+
     await pool.query("SELECT NOW()");
 
     console.log("DB Connected");
@@ -121,11 +128,14 @@ async function startServer() {
 
     try {
       await pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0.00
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 15000.00
       `);
-      console.log("DB update check: balance column in users table is ready");
+      await pool.query(`
+        ALTER TABLE users ALTER COLUMN balance SET DEFAULT 15000.00
+      `);
+      console.log("DB update check: balance column in users table is ready and default is set to 15,000");
     } catch (err) {
-      console.error("Failed to add balance column to users table:", err.message);
+      console.error("Failed to add/alter balance column in users table:", err.message);
     }
 
     const restoredLimitOrders =
@@ -143,7 +153,7 @@ async function startServer() {
     );
 
     initializeSocket(server);
-    const  startSubscriber = require("../src/websockets/subscriber.js");
+    const startSubscriber = require("../src/websockets/subscriber.js");
 
     await startSubscriber();
 

@@ -3,10 +3,6 @@ const {
   SystemMessage,
   HumanMessage,
 } = require("@langchain/core/messages");
-const fs = require("fs");
-const path = require("path");
-
-const { SYSTEM_PROMPT } = require("../prompts/system.prompt.js");
 
 class LLMService {
   constructor() {
@@ -15,39 +11,48 @@ class LLMService {
       model: "llama-3.3-70b-versatile",
       temperature: 0.2,
     });
-    this.docsContext = "";
-    this.loadDocs();
   }
 
-  loadDocs() {
-    try {
-      const docsDir = path.join(__dirname, "../docs");
-      if (fs.existsSync(docsDir)) {
-        const files = fs.readdirSync(docsDir);
-        let combined = "\n\n=== CAPITALUP PROJECT DOCUMENTATION AND KNOWLEDGE BASE ===\n";
-        files.forEach((file) => {
-          if (file.endsWith(".md")) {
-            const content = fs.readFileSync(path.join(docsDir, file), "utf-8");
-            combined += `\nFile: ${file}\n${content}\n-----------------\n`;
-          }
-        });
-        this.docsContext = combined;
-        console.log("AI LLM Service: Loaded documentation files successfully.");
-      }
-    } catch (err) {
-      console.error("AI LLM Service: Failed to load documentation files:", err.message);
-    }
+  buildPrompt(question, context) {
+    return `
+You are CapitalUp AI Support.
+
+Your job is to answer questions ONLY using the provided documentation.
+
+Rules:
+
+1. Use the documentation below as the primary source.
+2. If the answer is not present in the documentation, clearly say:
+   "I couldn't find this information in the CapitalUp knowledge base."
+3. Never invent endpoints, business logic or platform behaviour.
+4. Answer clearly and professionally.
+
+=========================
+KNOWLEDGE BASE
+=========================
+
+${context || "No relevant documentation found."}
+
+=========================
+USER QUESTION
+=========================
+
+${question}
+`;
   }
 
-  async chat(message) {
-    const systemPromptWithContext = `${SYSTEM_PROMPT}\n${this.docsContext}`;
+  async chat(question, context) {
+    const prompt = this.buildPrompt(question, context);
+
     const response = await this.model.invoke([
-      new SystemMessage(systemPromptWithContext),
-      new HumanMessage(message),
+      new SystemMessage(
+        "You are the official AI assistant for CapitalUp."
+      ),
+      new HumanMessage(prompt),
     ]);
 
     return response.content;
   }
 }
 
-module.exports = new LLMService();
+module.exports = new LLMService();

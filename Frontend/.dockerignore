@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+src
+public
+.git
+.gitignore
+*.md
+package*.json
+vite.config.js
+postcss.config.mjs

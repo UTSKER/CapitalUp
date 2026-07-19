@@ -59,7 +59,7 @@ function generateOTP() {
 function createAccessToken(user) {
   const expiry = process.env.JWT_EXPIRY
     ? (isNaN(process.env.JWT_EXPIRY) ? process.env.JWT_EXPIRY : Number(process.env.JWT_EXPIRY))
-    : "7d";
+    : "10m";
   return jwt.sign(
     {
       userId: user.user_id,
@@ -338,12 +338,19 @@ async function refreshAccessToken(
     );
   }
 
+  const user = await findUserById(decoded.userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
   const expiry = process.env.JWT_EXPIRY
     ? (isNaN(process.env.JWT_EXPIRY) ? process.env.JWT_EXPIRY : Number(process.env.JWT_EXPIRY))
-    : "7d";
+    : "10m";
   const accessToken = jwt.sign(
     {
       userId: decoded.userId,
+      email: user.email,
+      role: user.role,
     },
     process.env.JWT_SECRET,
     {

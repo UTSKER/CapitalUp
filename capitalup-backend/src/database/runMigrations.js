@@ -16,7 +16,12 @@ async function runMigration() {
    //"010_create_limit_orders_table.sql",
    //"011_create_notifications_table.sql",
    //"012_add_stock_market_data_columns.sql",
-   "013_create_stop_orders_table.sql"
+    "013_create_stop_orders_table.sql",
+    "014_add_balance_column.sql",
+    "015_create_risk_and_audit_tables.sql",
+    "016_create_risk_controls.sql",
+    "017_create_market_ticks.sql",
+    "018_add_risk_latency.sql"
   ];
 
   for (const file of files) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Search, TrendingUp, TrendingDown, Wallet, ShieldAlert, Star, X } from 'lucide-react';
+import { listenToMarketUpdates } from '../../../services/marketRealtime';
 
 export function MarketsView({
   onNavigate,
@@ -8,7 +9,8 @@ export function MarketsView({
   selectedStock,
   setSelectedStock,
   initialOrderSide = 'BUY',
-  setInitialOrderSide
+  setInitialOrderSide,
+  isMarketOpen
 }) {
   const API_BASE_URL = import.meta.env.VITE_API_URL || '';
   const token = localStorage.getItem('capitalup-access-token');
@@ -35,14 +37,7 @@ export function MarketsView({
   const [orderSide, setOrderSide] = useState(initialOrderSide || 'BUY'); // BUY or SELL
   const [tradeError, setTradeError] = useState('');
   const [tradeSuccess, setTradeSuccess] = useState('');
-  const [virtualBalance, setVirtualBalance] = useState(() => {
-    const bal = localStorage.getItem('capitalup-cash-balance');
-    if (bal === null) {
-      localStorage.setItem('capitalup-cash-balance', '10000');
-      return 10000;
-    }
-    return Number(bal);
-  });
+  const [virtualBalance, setVirtualBalance] = useState(() => Number(localStorage.getItem('capitalup-cash-balance') || 0));
 
   const fetchHoldings = async () => {
     try {
@@ -50,8 +45,13 @@ export function MarketsView({
         headers: { Authorization: `Bearer ${token}` }
       });
       const result = await res.json();
-      if (res.ok && result.data?.holdings) {
-        setHoldings(result.data.holdings);
+      if (res.ok && result.data) {
+        if (result.data.holdings) {
+          setHoldings(result.data.holdings);
+        }
+        if (result.data.summary?.balance != null) {
+          setVirtualBalance(Number(result.data.summary.balance));
+        }
       }
     } catch (err) {
       console.error('Failed to fetch holdings:', err);
@@ -72,9 +72,10 @@ export function MarketsView({
   // Fetch watchlist & holdings on mount
   useEffect(() => {
     const fetchWatchlist = async () => {
+      const freshToken = localStorage.getItem('capitalup-access-token') || token;
       try {
         const res = await fetch(`${API_BASE_URL}/watchlist`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${freshToken}` }
         });
         const result = await res.json();
         if (res.ok) {
@@ -87,20 +88,21 @@ export function MarketsView({
     };
 
     const fetchIndexHistories = async () => {
+      const freshToken = localStorage.getItem('capitalup-access-token') || token;
       try {
-        const niftyRes = await fetch(`${API_BASE_URL}/stocks/^NSEI/history`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const niftyRes = await fetch(`${API_BASE_URL}/stocks/${encodeURIComponent('^NSEI')}/history`, {
+          headers: { Authorization: `Bearer ${freshToken}` }
         });
         const niftyData = await niftyRes.json();
-        if (niftyData.success) {
+        if (niftyData.success && Array.isArray(niftyData.data) && niftyData.data.length > 0) {
           setNiftyHistory(niftyData.data);
         }
 
-        const sensexRes = await fetch(`${API_BASE_URL}/stocks/^BSESN/history`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const sensexRes = await fetch(`${API_BASE_URL}/stocks/${encodeURIComponent('^BSESN')}/history`, {
+          headers: { Authorization: `Bearer ${freshToken}` }
         });
         const sensexData = await sensexRes.json();
-        if (sensexData.success) {
+        if (sensexData.success && Array.isArray(sensexData.data) && sensexData.data.length > 0) {
           setSensexHistory(sensexData.data);
         }
       } catch (err) {
@@ -111,7 +113,52 @@ export function MarketsView({
     fetchWatchlist();
     fetchIndexHistories();
     fetchHoldings();
+
+    const handleWatchlistChanged = () => {
+      fetchWatchlist();
+    };
+    window.addEventListener('watchlistChanged', handleWatchlistChanged);
+    return () => {
+      window.removeEventListener('watchlistChanged', handleWatchlistChanged);
+    };
   }, [API_BASE_URL, token]);
+
+  // Real-time updates for Nifty 50 and Sensex histories
+  useEffect(() => {
+    const stopRealtime = listenToMarketUpdates(({ symbol, stockData }) => {
+      if (!isMarketOpen) return;
+      const nextPrice = Number(stockData.price);
+      const timestamp = stockData.updatedAt || new Date().toISOString();
+
+      if (symbol === '^NSEI') {
+        setNiftyHistory((prevHistory) => {
+          if (!prevHistory.length) return [{ price: nextPrice, timestamp }];
+          const lastItem = prevHistory[prevHistory.length - 1];
+          if (lastItem.timestamp === timestamp) {
+            const next = [...prevHistory];
+            next[next.length - 1] = { ...lastItem, price: nextPrice };
+            return next;
+          }
+          const next = [...prevHistory, { price: nextPrice, timestamp }];
+          return next.slice(-50);
+        });
+      } else if (symbol === '^BSESN') {
+        setSensexHistory((prevHistory) => {
+          if (!prevHistory.length) return [{ price: nextPrice, timestamp }];
+          const lastItem = prevHistory[prevHistory.length - 1];
+          if (lastItem.timestamp === timestamp) {
+            const next = [...prevHistory];
+            next[next.length - 1] = { ...lastItem, price: nextPrice };
+            return next;
+          }
+          const next = [...prevHistory, { price: nextPrice, timestamp }];
+          return next.slice(-50);
+        });
+      }
+    });
+
+    return stopRealtime;
+  }, [isMarketOpen]);
 
   // Fetch stock price history when selectedStock changes
   useEffect(() => {
@@ -141,44 +188,91 @@ export function MarketsView({
     setStopPrice(selectedStock.lastPrice || 100);
     setTradeSuccess('');
     setTradeError('');
-  }, [selectedStock, API_BASE_URL, token]);
+  }, [selectedStock?.symbol, API_BASE_URL, token]);
+
+  useEffect(() => {
+    if (!selectedStock?.symbol) return undefined;
+
+    const stopRealtime = listenToMarketUpdates(({ symbol, stockData }) => {
+      if (symbol !== selectedStock.symbol) return;
+      if (!isMarketOpen) return;
+      const nextPrice = Number(stockData.price);
+      const timestamp = stockData.updatedAt || new Date().toISOString();
+
+      setHistory((prevHistory) => {
+        if (!prevHistory.length) return [{ price: nextPrice, timestamp }];
+        
+        const lastItem = prevHistory[prevHistory.length - 1];
+        if (lastItem.timestamp === timestamp) {
+          const next = [...prevHistory];
+          next[next.length - 1] = {
+            ...lastItem,
+            price: nextPrice,
+          };
+          return next;
+        }
+
+        const next = [...prevHistory, { price: nextPrice, timestamp }];
+        if (next.length > 50) {
+          next.shift();
+        }
+        return next;
+      });
+    });
+
+    return stopRealtime;
+  }, [selectedStock?.symbol, isMarketOpen]);
 
   // Handle balance updates
-  const updateBalance = (newBalance) => {
-    localStorage.setItem('capitalup-cash-balance', newBalance.toFixed(2));
-    setVirtualBalance(newBalance);
+  const updateBalance = () => {
     window.dispatchEvent(new Event('balanceChanged'));
   };
 
   // Toggle watchlist
   const handleToggleWatchlist = async (stock) => {
+    if (!stock || !stock.symbol) return;
+    const freshToken = localStorage.getItem('capitalup-access-token') || token;
     const isStarred = watchlist.includes(stock.symbol);
+
+    // Optimistically update UI so user gets 0ms instant response
+    setWatchlist(prev =>
+      isStarred ? prev.filter(sym => sym !== stock.symbol) : [...prev, stock.symbol]
+    );
+
     try {
       if (isStarred) {
-        const res = await fetch(`${API_BASE_URL}/watchlist/${stock.symbol}`, {
+        const res = await fetch(`${API_BASE_URL}/watchlist/${encodeURIComponent(stock.symbol)}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${freshToken}` }
         });
         if (res.ok) {
-          setWatchlist(prev => prev.filter(sym => sym !== stock.symbol));
           window.dispatchEvent(new CustomEvent('watchlistChanged'));
+        } else {
+          // Revert on failure
+          setWatchlist(prev => [...prev, stock.symbol]);
         }
       } else {
         const res = await fetch(`${API_BASE_URL}/watchlist`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${freshToken}`
           },
           body: JSON.stringify({ symbol: stock.symbol })
         });
         if (res.ok) {
-          setWatchlist(prev => [...prev, stock.symbol]);
           window.dispatchEvent(new CustomEvent('watchlistChanged'));
+        } else {
+          // Revert on failure
+          setWatchlist(prev => prev.filter(sym => sym !== stock.symbol));
         }
       }
     } catch (err) {
       console.error('Watchlist update failed:', err);
+      // Revert on network error
+      setWatchlist(prev =>
+        isStarred ? [...prev, stock.symbol] : prev.filter(sym => sym !== stock.symbol)
+      );
     }
   };
 
@@ -342,23 +436,22 @@ export function MarketsView({
         }
       }
 
-      // Adjust Virtual Balance
+      // Force positions and balance updates
+      window.dispatchEvent(new Event('holdingsChanged'));
+      window.dispatchEvent(new Event('balanceChanged'));
+      fetchHoldings();
+
       if (orderSide === 'BUY') {
-        updateBalance(virtualBalance - totalCost);
         setTradeSuccess(`Successfully placed order to BUY ${quantity} shares of ${selectedStock.symbol}.`);
       } else {
-        // If selling, we gain cash instantly
-        updateBalance(virtualBalance + totalCost);
         setTradeSuccess(
           orderType === 'OCO'
             ? `Placed OCO pair for ${quantity} shares of ${selectedStock.symbol}: target ₹${Number(limitPrice).toFixed(2)} / stop-loss ₹${Number(stopPrice).toFixed(2)}. If one executes, the other cancels automatically.`
-            : `Successfully placed order to SELL ${quantity} shares of ${selectedStock.symbol}.`
+            : orderType === 'MARKET'
+              ? `Successfully placed order to SELL ${quantity} shares of ${selectedStock.symbol}.`
+              : `Successfully placed pending SELL ${orderType} order for ${quantity} shares of ${selectedStock.symbol} at ₹${(orderType === 'STOP' ? stopPrice : limitPrice).toFixed(2)}.`
         );
       }
-
-      // Force positions updates
-      window.dispatchEvent(new Event('holdingsChanged'));
-      fetchHoldings();
 
     } catch (err) {
       setTradeError(err.message);
@@ -376,39 +469,45 @@ export function MarketsView({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minHeight: 'calc(100vh - 120px)', position: 'relative' }}>
       <style dangerouslySetInnerHTML={{ __html: `
         .index-card {
-          background: var(--color-bg-panel-0.6);
-          border: 1px solid var(--color-white-0.07);
+          background: rgba(var(--color-bg-panel-rgb), 0.7) !important;
+          border: 1px solid rgba(var(--color-white-rgb), 0.08) !important;
           border-radius: 16px;
           padding: 16px 20px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          transition: all 0.2s ease;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
           cursor: pointer;
           min-height: 100px;
+          backdrop-filter: blur(12px) !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
         }
         .index-card:hover {
-          background: var(--color-white-0.03);
-          border-color: var(--color-white-0.12);
-          transform: translateY(-2px);
+          background: rgba(var(--color-bg-panel-rgb), 0.9) !important;
+          border-color: rgba(16, 185, 129, 0.4) !important;
+          transform: translateY(-4px) scale(1.01) !important;
+          box-shadow: 0 12px 30px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
         }
         .stock-row {
           display: grid;
           grid-template-columns: 1fr 120px 120px 100px 100px 40px;
           padding: 14px 20px;
           align-items: center;
-          border-bottom: 1px solid var(--color-white-0.04);
+          border-bottom: 1px solid rgba(var(--color-white-rgb), 0.05);
           cursor: pointer;
-          transition: background 0.15s;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         .stock-row:hover {
-          background: var(--color-white-0.025);
+          background: rgba(var(--color-white-rgb), 0.04) !important;
+          transform: scale(1.005) !important;
         }
         .gainer-card, .loser-card {
-          background: var(--color-bg-panel-0.6);
-          border: 1px solid var(--color-white-0.07);
-          border-radius: 16px;
-          padding: 16px 20px;
+          background: rgba(var(--color-bg-panel-rgb), 0.75) !important;
+          border: 1px solid rgba(var(--color-white-rgb), 0.08) !important;
+          border-radius: 20px;
+          padding: 20px;
+          backdrop-filter: blur(15px) !important;
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
         }
         .modal-overlay {
           position: fixed;
@@ -417,29 +516,35 @@ export function MarketsView({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(8px);
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(12px);
           padding: 20px;
         }
         .modal-card {
           width: 100%;
           max-width: 780px;
           max-height: 90vh;
-          background: var(--color-bg-card);
-          border: 1px solid var(--color-white-0.1);
-          border-radius: 20px;
+          background: var(--color-bg-card) !important;
+          border: 1px solid rgba(var(--color-white-rgb), 0.1) !important;
+          border-radius: 24px !important;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+          box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
           position: relative;
           overflow-y: auto;
+          backdrop-filter: blur(25px) !important;
+          animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+        }
+        @keyframes modalPop {
+          from { transform: scale(0.9) translateY(20px); opacity: 0; }
+          to { transform: scale(1) translateY(0); opacity: 1; }
         }
         .modal-close-btn {
           position: absolute;
           top: 14px;
           right: 14px;
-          background: var(--color-white-0.05);
-          border: 1px solid var(--color-white-0.08);
+          background: rgba(var(--color-white-rgb), 0.05) !important;
+          border: 1px solid rgba(var(--color-white-rgb), 0.08) !important;
           border-radius: 50%;
           width: 28px;
           height: 28px;
@@ -448,13 +553,13 @@ export function MarketsView({
           justify-content: center;
           cursor: pointer;
           color: var(--color-text-muted);
-          transition: all 0.2s;
+          transition: all 0.25s;
           z-index: 10;
         }
         .modal-close-btn:hover {
-          background: var(--color-white-0.1);
+          background: rgba(var(--color-white-rgb), 0.1) !important;
           color: var(--color-text-main);
-          transform: rotate(90deg);
+          transform: rotate(90deg) !important;
         }
         .modal-body {
           padding: 24px;
@@ -466,14 +571,15 @@ export function MarketsView({
           display: grid;
           grid-template-columns: 1.2fr 1fr;
           gap: 24px;
-          border-top: 1px solid var(--color-white-0.08);
+          border-top: 1px solid rgba(var(--color-white-rgb), 0.08) !important;
           padding-top: 20px;
         }
         .buy-sell-box {
-          background: var(--color-white-0.02);
-          border: 1px solid var(--color-white-0.07);
-          border-radius: 14px;
+          background: rgba(var(--color-white-rgb), 0.03) !important;
+          border: 1px solid rgba(var(--color-white-rgb), 0.06) !important;
+          border-radius: 16px !important;
           padding: 16px;
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05) !important;
         }
         @media (max-width: 768px) {
           .modal-bottom-grid {
@@ -529,6 +635,18 @@ export function MarketsView({
           const niftyChg = indexStock.previousClose ? ((indexStock.lastPrice - indexStock.previousClose) / indexStock.previousClose) * 100 : 0;
           const niftyChgVal = (indexStock.lastPrice - indexStock.previousClose) || 0;
           const isNiftyPos = niftyChg >= 0;
+
+          const niftyChartData = (niftyHistory && niftyHistory.length > 0)
+            ? niftyHistory
+            : Array.from({ length: 25 }, (_, i) => {
+                const progress = i / 24;
+                const start = indexStock.previousClose || (indexStock.lastPrice * 0.99);
+                const end = indexStock.lastPrice || start;
+                const base = start + (end - start) * progress;
+                const noise = (Math.sin(i * 0.7) * 0.0012) * base;
+                return { price: Number((base + noise).toFixed(2)) };
+              });
+
           return (
             <div className="index-card" onClick={() => setSelectedStock(indexStock)}>
               <div>
@@ -541,14 +659,27 @@ export function MarketsView({
                   <span>{isNiftyPos ? '+' : ''}{niftyChgVal.toFixed(2)} ({isNiftyPos ? '+' : ''}{niftyChg.toFixed(2)}%)</span>
                 </div>
               </div>
-              <div style={{ width: '120px', height: '45px' }}>
-                {niftyHistory.length > 0 && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={niftyHistory}>
-                      <Area type="monotone" dataKey="price" stroke={isNiftyPos ? 'var(--color-success)' : 'var(--color-error)'} strokeWidth={1.5} fillOpacity={0.06} fill={isNiftyPos ? 'var(--color-success)' : 'var(--color-error)'} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
+              <div style={{ width: '170px', height: '50px', flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={niftyChartData} margin={{ top: 4, bottom: 4, left: 0, right: 0 }}>
+                    <defs>
+                      <linearGradient id="niftyGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={isNiftyPos ? '#10b981' : '#ef4444'} stopOpacity={0.25} />
+                        <stop offset="100%" stopColor={isNiftyPos ? '#10b981' : '#ef4444'} stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <YAxis type="number" domain={['auto', 'auto']} hide={true} />
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke={isNiftyPos ? '#10b981' : '#ef4444'}
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#niftyGradient)"
+                      isAnimationActive={true}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
           );
@@ -561,6 +692,18 @@ export function MarketsView({
           const sensexChg = indexStock.previousClose ? ((indexStock.lastPrice - indexStock.previousClose) / indexStock.previousClose) * 100 : 0;
           const sensexChgVal = (indexStock.lastPrice - indexStock.previousClose) || 0;
           const isSensexPos = sensexChg >= 0;
+
+          const sensexChartData = (sensexHistory && sensexHistory.length > 0)
+            ? sensexHistory
+            : Array.from({ length: 25 }, (_, i) => {
+                const progress = i / 24;
+                const start = indexStock.previousClose || (indexStock.lastPrice * 0.99);
+                const end = indexStock.lastPrice || start;
+                const base = start + (end - start) * progress;
+                const noise = (Math.sin(i * 0.7) * 0.0012) * base;
+                return { price: Number((base + noise).toFixed(2)) };
+              });
+
           return (
             <div className="index-card" onClick={() => setSelectedStock(indexStock)}>
               <div>
@@ -573,14 +716,27 @@ export function MarketsView({
                   <span>{isSensexPos ? '+' : ''}{sensexChgVal.toFixed(2)} ({isSensexPos ? '+' : ''}{sensexChg.toFixed(2)}%)</span>
                 </div>
               </div>
-              <div style={{ width: '120px', height: '45px' }}>
-                {sensexHistory.length > 0 && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sensexHistory}>
-                      <Area type="monotone" dataKey="price" stroke={isSensexPos ? 'var(--color-success)' : 'var(--color-error)'} strokeWidth={1.5} fillOpacity={0.06} fill={isSensexPos ? 'var(--color-success)' : 'var(--color-error)'} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
+              <div style={{ width: '170px', height: '50px', flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={sensexChartData} margin={{ top: 4, bottom: 4, left: 0, right: 0 }}>
+                    <defs>
+                      <linearGradient id="sensexGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={isSensexPos ? '#10b981' : '#ef4444'} stopOpacity={0.25} />
+                        <stop offset="100%" stopColor={isSensexPos ? '#10b981' : '#ef4444'} stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <YAxis type="number" domain={['auto', 'auto']} hide={true} />
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke={isSensexPos ? '#10b981' : '#ef4444'}
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#sensexGradient)"
+                      isAnimationActive={true}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
           );
@@ -663,14 +819,16 @@ export function MarketsView({
         const regularStocks = filteredStocks.filter(s => !s.symbol.startsWith('^'));
         return (
           <div style={{
-            background: 'var(--color-bg-panel-0.6)',
-            border: '1px solid var(--color-white-0.07)',
+            background: 'rgba(15, 22, 23, 0.45)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '16px',
             padding: '20px',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
           }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '14px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '14px' }}>
               All Listed Equities
             </div>
             
@@ -742,16 +900,18 @@ export function MarketsView({
                       <div style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleToggleWatchlist(stock)}
+                          className="btn-glass"
                           style={{
-                            background: 'none',
-                            border: 'none',
                             cursor: 'pointer',
-                            padding: '4px',
-                            borderRadius: '50%'
+                            padding: '6px',
+                            borderRadius: '50%',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                           }}
                         >
                           <Star
-                            size={13}
+                            size={12}
                             fill={isStarred ? 'var(--color-warning)' : 'none'}
                             color={isStarred ? 'var(--color-warning)' : 'var(--color-text-dim)'}
                           />
@@ -784,7 +944,15 @@ export function MarketsView({
                     </h1>
                     <button
                       onClick={() => handleToggleWatchlist(selectedStock)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                      className="btn-glass"
+                      style={{
+                        cursor: 'pointer',
+                        padding: '8px',
+                        borderRadius: '50%',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
                     >
                       <Star
                         size={16}

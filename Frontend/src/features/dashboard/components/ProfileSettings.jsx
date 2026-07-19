@@ -476,11 +476,16 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
 
       {/* KYC Status Banner */}
       {kycStatus !== 'NOT_STARTED' && (
-        <button onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'personal-information' }))} style={{
-          alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--color-accent)',
-          border: 'none', borderRadius: '8px', padding: '10px 18px', color: 'var(--color-text-inverted)', fontSize: '13px',
-          fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px var(--color-accent-0.2)'
-        }}><User size={15} /> Personal Information</button>
+        <button 
+          onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'personal-information' }))} 
+          className="btn-glass-accent"
+          style={{
+            alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px',
+            borderRadius: '8px', padding: '10px 18px', fontSize: '13px',
+            fontWeight: 600, cursor: 'pointer'
+          }}>
+          <User size={15} /> Personal Information
+        </button>
       )}
 
       {kycStatus === 'NOT_STARTED' && (
@@ -507,17 +512,13 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           </div>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            className="btn-glass-accent"
             style={{
-              background: 'var(--color-accent)',
-              border: 'none',
               borderRadius: '6px',
               padding: '8px 16px',
-              color: 'var(--color-text-inverted)',
               fontSize: '12.5px',
               fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px var(--color-accent-0.2)',
-              transition: 'all 0.2s'
+              cursor: 'pointer'
             }}
           >
             Start KYC Verification
@@ -549,17 +550,13 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           </div>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            className="btn-glass-warning"
             style={{
-              background: 'var(--color-warning)',
-              border: 'none',
               borderRadius: '6px',
               padding: '8px 16px',
-              color: 'var(--color-text-inverted)',
               fontSize: '12.5px',
               fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(245, 185, 66, 0.2)',
-              transition: 'all 0.2s'
+              cursor: 'pointer'
             }}
           >
             Check KYC Status
@@ -591,17 +588,13 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           </div>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            className="btn-glass-success"
             style={{
-              background: 'var(--color-success)',
-              border: 'none',
               borderRadius: '6px',
               padding: '8px 16px',
-              color: 'var(--color-text-inverted)',
               fontSize: '12.5px',
               fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
-              transition: 'all 0.2s'
+              cursor: 'pointer'
             }}
           >
             View KYC Profile
@@ -633,17 +626,13 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
           </div>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'kyc' }))}
+            className="btn-glass-error"
             style={{
-              background: 'var(--color-error)',
-              border: 'none',
               borderRadius: '6px',
               padding: '8px 16px',
-              color: 'var(--color-text-inverted)',
               fontSize: '12.5px',
               fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
-              transition: 'all 0.2s'
+              cursor: 'pointer'
             }}
           >
             Review & Re-apply
@@ -901,22 +890,18 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
                 <button
-                   type="submit"
-                   style={{
-                     background: 'var(--color-accent)',
-                     border: 'none',
-                     borderRadius: '8px',
-                     padding: '10px 24px',
-                     color: 'var(--color-text-inverted)',
-                     fontSize: '13px',
-                     fontWeight: 600,
-                     cursor: 'pointer',
-                     display: 'flex',
-                     alignItems: 'center',
-                     gap: '8px',
-                     boxShadow: '0 4px 12px var(--color-accent-0.2)',
-                     transition: 'all 0.2s'
-                   }}>
+                    type="submit"
+                    className="btn-glass-accent"
+                    style={{
+                      borderRadius: '8px',
+                      padding: '10px 24px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
                   Save Profiles Changes
                 </button>
 
@@ -972,17 +957,13 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                       type="button"
                       onClick={handleSendMobileOtp}
                       disabled={otpLoading}
+                      className="btn-glass-accent"
                       style={{
-                        background: 'var(--color-accent)',
-                        border: 'none',
                         borderRadius: '8px',
                         padding: '10px 20px',
-                        color: 'var(--color-text-inverted)',
                         fontSize: '13px',
                         fontWeight: 600,
                         cursor: 'pointer',
-                        boxShadow: '0 4px 12px var(--color-accent-0.2)',
-                        transition: 'all 0.2s',
                         whiteSpace: 'nowrap'
                       }}>
                       {otpLoading ? 'Sending...' : 'Send OTP'}
@@ -1350,17 +1331,13 @@ export function ProfileSettings({ currentTheme, onChangeTheme }) {
                 <button
                   type="submit"
                   disabled={pwLoading}
+                  className="btn-glass-accent"
                   style={{
-                    background: 'var(--color-accent)',
-                    border: 'none',
                     borderRadius: '8px',
                     padding: '10px 24px',
-                    color: 'var(--color-text-inverted)',
                     fontSize: '13px',
                     fontWeight: 600,
                     cursor: 'pointer',
-                    boxShadow: '0 4px 12px var(--color-accent-0.2)',
-                    transition: 'all 0.2s',
                     opacity: pwLoading ? 0.8 : 1
                   }}>
                   {pwLoading ? 'Updating...' : 'Update Password'}

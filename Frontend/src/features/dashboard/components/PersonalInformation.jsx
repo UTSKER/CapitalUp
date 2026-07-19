@@ -185,7 +185,21 @@ export function PersonalInformation() {
         </div>
       </Section>
 
-      <button onClick={save} disabled={saving} style={{ alignSelf: 'flex-end', background: 'var(--color-accent)', border: 0, borderRadius: '8px', padding: '11px 22px', color: 'var(--color-text-inverted)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button
+        onClick={save}
+        disabled={saving}
+        className="btn-glass-accent"
+        style={{
+          alignSelf: 'flex-end',
+          borderRadius: '8px',
+          padding: '11px 22px',
+          fontWeight: 600,
+          cursor: saving ? 'wait' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}
+      >
         {hasChanges ? <Save size={15} /> : <CheckCircle2 size={15} />}
         {saving ? 'Saving…' : hasChanges ? 'Save changes' : 'Done'}
       </button>

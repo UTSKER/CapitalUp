@@ -69,6 +69,13 @@ const {
 } = require(
   "../../oco/services/oco.service"
 );
+const {
+  appendAuditEvent,
+  appendOrderAuditEvent,
+  consumeReservation,
+  evaluateOrder,
+  recordRealizedPnl,
+} = require("../../risk/services/risk.service");
 
 async function placeLimitOrder(
   userId,
@@ -197,6 +204,35 @@ async function placeLimitOrder(
   try {
     await client.query("BEGIN");
 
+    const risk = await evaluateOrder(client, {
+      userId,
+      clientOrderId: data.clientOrderId,
+      orderType: "LIMIT",
+      symbol,
+      side,
+      quantity: Number(quantity),
+      price: Number(limitPrice),
+      marketPrice: currentPrice,
+    });
+    if (!risk.approved) {
+      await client.query("COMMIT");
+      const error = new Error(risk.message);
+      error.code = risk.code;
+      error.statusCode = 422;
+      throw error;
+    }
+
+    if (side === "BUY") {
+      const totalCost = Number(limitPrice) * Number(quantity);
+      const userRes = await client.query("SELECT balance FROM users WHERE user_id = $1 FOR UPDATE", [userId]);
+      const currentBalance = userRes.rows[0] ? Number(userRes.rows[0].balance) : 0;
+      if (currentBalance < totalCost) {
+        throw new Error(`Insufficient cash balance. Required: ₹${totalCost.toFixed(2)}, Available: ₹${currentBalance.toFixed(2)}`);
+      }
+
+      await client.query("UPDATE users SET balance = balance - $1 WHERE user_id = $2", [totalCost, userId]);
+    }
+
     order =
       await createLimitOrder({
         userId,
@@ -207,7 +243,23 @@ async function placeLimitOrder(
         validity,
       }, client);
 
+    await consumeReservation(client, risk.correlationId, order.id);
     addOrderToMatchingEngine(order);
+
+    await appendAuditEvent(client, {
+      correlationId: risk.correlationId,
+      entityType: "LIMIT_ORDER",
+      entityId: order.id,
+      userId,
+      eventType: "ORDER_ADDED_TO_BOOK",
+      payload: {
+        symbol,
+        side,
+        quantity: Number(quantity),
+        limitPrice: Number(limitPrice),
+        validity,
+      },
+    });
 
     await createNotification({
       userId,
@@ -218,6 +270,13 @@ async function placeLimitOrder(
     }, client);
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [userId]);
+    if (balResult.rows[0]) {
+      const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+      await syncBalanceToRedis(userId, Number(balResult.rows[0].balance));
+    }
   } catch (error) {
     await client.query("ROLLBACK");
 
@@ -289,6 +348,19 @@ async function removeLimitOrder(
       );
     }
 
+    await appendOrderAuditEvent(client, {
+      orderId: order.id,
+      userId,
+      entityType: "LIMIT_ORDER",
+      eventType: "ORDER_CANCELLED",
+      payload: { symbol: order.symbol, side: order.side, quantity: Number(order.quantity) },
+    });
+
+    if (order.side === "BUY") {
+      const refund = Number(order.quantity) * Number(order.limitPrice || order.limit_price);
+      await client.query("UPDATE users SET balance = balance + $1 WHERE user_id = $2", [refund, userId]);
+    }
+
     await createNotification({
       userId,
       title:
@@ -306,6 +378,13 @@ async function removeLimitOrder(
       );
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [userId]);
+    if (balResult.rows[0]) {
+      const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+      await syncBalanceToRedis(userId, Number(balResult.rows[0].balance));
+    }
   } catch (error) {
     await client.query("ROLLBACK");
 
@@ -377,6 +456,7 @@ async function settleExecutedTrades(
     await pool.connect();
 
   const stopOrdersToRemoveFromEngine = [];
+  const executedUserIds = new Set();
 
   try {
     await client.query("BEGIN");
@@ -391,6 +471,8 @@ async function settleExecutedTrades(
       if (!order) {
         continue;
       }
+
+      executedUserIds.add(order.userId);
 
       await markLimitOrderFilled({
         id: order.id,
@@ -413,6 +495,19 @@ async function settleExecutedTrades(
           "EXECUTED",
       }, client);
 
+      await appendOrderAuditEvent(client, {
+        orderId: order.id,
+        userId: order.userId,
+        entityType: "LIMIT_ORDER",
+        eventType: "ORDER_EXECUTED",
+        payload: {
+          symbol: order.symbol,
+          side: order.side,
+          quantity: Number(order.quantity),
+          price: Number(trade.executedPrice),
+        },
+      });
+
       if (order.side === "BUY") {
         await buyStock({
           userId:
@@ -429,6 +524,10 @@ async function settleExecutedTrades(
       }
 
       if (order.side === "SELL") {
+        const holdingBeforeSale = await client.query(
+          "SELECT average_buy_price FROM portfolio_holdings WHERE user_id = $1 AND symbol = $2 FOR UPDATE",
+          [order.userId, order.symbol]
+        );
         await sellStock({
           userId:
             order.userId,
@@ -437,7 +536,25 @@ async function settleExecutedTrades(
           quantity:
             Number(order.quantity),
         }, client);
+
+        const proceeds = Number(order.quantity) * Number(trade.executedPrice);
+        await client.query("UPDATE users SET balance = balance + $1 WHERE user_id = $2", [proceeds, order.userId]);
+        await recordRealizedPnl(client, {
+          userId: order.userId,
+          quantity: Number(order.quantity),
+          entryPrice: Number(holdingBeforeSale.rows[0].average_buy_price),
+          exitPrice: Number(trade.executedPrice),
+          orderId: order.id,
+        });
       }
+
+      await appendOrderAuditEvent(client, {
+        orderId: order.id,
+        userId: order.userId,
+        entityType: "LIMIT_ORDER",
+        eventType: "PORTFOLIO_UPDATED",
+        payload: { symbol: order.symbol, side: order.side, quantity: Number(order.quantity) },
+      });
 
       await createLimitOrderTrade({
         tradeId:
@@ -480,6 +597,19 @@ async function settleExecutedTrades(
     }
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    for (const uId of executedUserIds) {
+      try {
+        const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [uId]);
+        if (balResult.rows[0]) {
+          const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+          await syncBalanceToRedis(uId, Number(balResult.rows[0].balance));
+        }
+      } catch (redisErr) {
+        console.error(`Failed to sync Redis balance for user ${uId} after limit execution:`, redisErr.message);
+      }
+    }
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -524,7 +654,23 @@ async function expireDayOrders() {
         client
       );
 
+    const expiredUserIds = new Set();
+
     for (const order of expiredOrders) {
+      if (order.side === "BUY") {
+        const refund = Number(order.quantity) * Number(order.limitPrice || order.limit_price);
+        await client.query("UPDATE users SET balance = balance + $1 WHERE user_id = $2", [refund, order.userId]);
+        expiredUserIds.add(order.userId);
+      }
+
+      await appendOrderAuditEvent(client, {
+        orderId: order.id,
+        userId: order.userId,
+        entityType: "LIMIT_ORDER",
+        eventType: "ORDER_EXPIRED",
+        payload: { symbol: order.symbol, side: order.side, quantity: Number(order.quantity) },
+      });
+
       await createNotification({
         userId:
           order.userId,
@@ -536,6 +682,19 @@ async function expireDayOrders() {
     }
 
     await client.query("COMMIT");
+
+    // Sync updated balance to Redis cache
+    for (const uId of expiredUserIds) {
+      try {
+        const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [uId]);
+        if (balResult.rows[0]) {
+          const { syncBalanceToRedis } = require("../../portfolio/services/balance.service");
+          await syncBalanceToRedis(uId, Number(balResult.rows[0].balance));
+        }
+      } catch (redisErr) {
+        console.error(`Failed to sync Redis balance for user ${uId} after limit expiration:`, redisErr.message);
+      }
+    }
 
     return expiredOrders;
   } catch (error) {

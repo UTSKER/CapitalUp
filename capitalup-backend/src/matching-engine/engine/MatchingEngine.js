@@ -15,15 +15,24 @@ class MatchingEngine {
             this.bookManager.books;
 
         this.stopBooks = new Map();
+        this.latencies = [];
 
     }
 
+    recordLatency(startedAt) {
+        this.latencies.push(Date.now() - startedAt);
+        if (this.latencies.length > 1000) this.latencies.shift();
+    }
+
     placeOrder(order) {
+        const startedAt = Date.now();
 
         const book =
             this.getOrCreateOrderBook(order.symbol);
 
-        return book.processOrder(order);
+        const result = book.processOrder(order);
+        this.recordLatency(startedAt);
+        return result;
 
     }
 
@@ -53,6 +62,7 @@ class MatchingEngine {
     }
 
     processMarketPrice(symbol, currentPrice) {
+        const startedAt = Date.now();
 
         const book =
             this.orderBooks.get(symbol);
@@ -61,7 +71,9 @@ class MatchingEngine {
             return [];
         }
 
-        return book.executeEligibleOrders(currentPrice);
+        const result = book.executeEligibleOrders(currentPrice);
+        this.recordLatency(startedAt);
+        return result;
     }
 
     getOrCreateOrderBook(symbol) {
@@ -70,11 +82,14 @@ class MatchingEngine {
     }
 
     placeStopOrder(order) {
+        const startedAt = Date.now();
 
         const book =
             this.getOrCreateStopOrderBook(order.symbol);
 
-        return book.processOrder(order);
+        const result = book.processOrder(order);
+        this.recordLatency(startedAt);
+        return result;
 
     }
 
@@ -104,6 +119,7 @@ class MatchingEngine {
     }
 
     processMarketPriceForStops(symbol, currentPrice) {
+        const startedAt = Date.now();
 
         const book =
             this.stopBooks.get(symbol);
@@ -112,7 +128,9 @@ class MatchingEngine {
             return [];
         }
 
-        return book.triggerEligibleOrders(currentPrice);
+        const result = book.triggerEligibleOrders(currentPrice);
+        this.recordLatency(startedAt);
+        return result;
     }
 
     getOrCreateStopOrderBook(symbol) {
@@ -125,6 +143,64 @@ class MatchingEngine {
         }
 
         return this.stopBooks.get(symbol);
+    }
+
+    getOrderBookSnapshot(symbol, depth = 10) {
+        const book = this.orderBooks.get(symbol);
+        if (!book) {
+            return { symbol, bids: [], asks: [], orderCount: 0 };
+        }
+
+        const collect = (node, descending, levels) => {
+            if (!node || levels.length >= depth) return;
+            const first = descending ? node.right : node.left;
+            const second = descending ? node.left : node.right;
+            collect(first, descending, levels);
+            if (levels.length < depth) {
+                const orders = [];
+                let current = node.priceLevel.orders.head;
+                while (current) {
+                    orders.push({
+                        id: current.id,
+                        userId: current.userId,
+                        quantity: current.quantity,
+                        remainingQuantity: current.remainingQuantity,
+                        createdAt: current.createdAt,
+                    });
+                    current = current.next;
+                }
+                levels.push({
+                    price: node.priceLevel.price,
+                    totalQuantity: node.priceLevel.totalQuantity,
+                    orderCount: node.priceLevel.size(),
+                    fifo: orders,
+                });
+            }
+            collect(second, descending, levels);
+        };
+
+        const bids = [];
+        const asks = [];
+        collect(book.buyTree.root, true, bids);
+        collect(book.sellTree.root, false, asks);
+        return { symbol, bids, asks, orderCount: book.orderCount() };
+    }
+
+    getMetrics() {
+        const percentile = (fraction) => {
+            if (!this.latencies.length) return null;
+            const values = [...this.latencies].sort((a, b) => a - b);
+            return values[Math.min(values.length - 1, Math.ceil(values.length * fraction) - 1)];
+        };
+        let pendingOrders = 0;
+        for (const book of this.orderBooks.values()) pendingOrders += book.orderCount();
+        for (const book of this.stopBooks.values()) pendingOrders += book.orderCount();
+        return {
+            orderBooks: this.orderBooks.size,
+            pendingOrders,
+            p95LatencyMs: percentile(0.95),
+            p99LatencyMs: percentile(0.99),
+        };
     }
 
 }

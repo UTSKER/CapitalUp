@@ -22,10 +22,11 @@ async function create(
       data: order,
     });
   } catch (error) {
-    return res.status(400).json({
+    return res.status(error.statusCode || 400).json({
       success: false,
       message:
         error.message,
+      code: error.code,
     });
   }
 }

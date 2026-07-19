@@ -554,13 +554,11 @@ export function KycVerification() {
             </div>
             <button
               onClick={handleRestartKyc}
+              className="btn-glass-error"
               style={{
                 alignSelf: 'flex-start',
-                background: 'var(--color-error)',
-                border: 'none',
                 borderRadius: '6px',
                 padding: '6px 14px',
-                color: 'var(--color-text-inverted)',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -655,7 +653,7 @@ export function KycVerification() {
                     <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600 }}>PAN Card Front Photo</label>
                     {!filePreviews.panDocument ? (
                       <div style={{
-                        border: `2.5px dashed ${validationErrors.panDocument ? 'var(--color-error)' : 'var(--color-white-0.08)'}`,
+                        border: `2.5px dashed ${validationErrors.panDocument ? 'var(--color-error)' : 'var(--color-white-0.3)'}`,
                         borderRadius: '12px',
                         padding: '30px 20px',
                         textAlign: 'center',
@@ -701,20 +699,16 @@ export function KycVerification() {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
                   <button
                     onClick={handleNext}
+                    className="btn-glass-accent"
                     style={{
-                      background: 'var(--color-accent)',
-                      border: 'none',
                       borderRadius: '8px',
                       padding: '10px 24px',
-                      color: 'var(--color-text-inverted)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 12px var(--color-accent-0.2)',
-                      transition: 'all 0.2s'
+                      gap: '8px'
                     }}
                   >
                     Proceed to Aadhaar <ArrowRight size={14} />
@@ -768,7 +762,7 @@ export function KycVerification() {
                       <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600 }}>Aadhaar Front Photo</label>
                       {!filePreviews.aadhaarFront ? (
                         <div style={{
-                          border: `2.5px dashed ${validationErrors.aadhaarFront ? 'var(--color-error)' : 'var(--color-white-0.08)'}`,
+                          border: `2.5px dashed ${validationErrors.aadhaarFront ? 'var(--color-error)' : 'var(--color-white-0.3)'}`,
                           borderRadius: '12px',
                           padding: '30px 20px',
                           textAlign: 'center',
@@ -814,7 +808,7 @@ export function KycVerification() {
                       <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600 }}>Aadhaar Back Photo</label>
                       {!filePreviews.aadhaarBack ? (
                         <div style={{
-                          border: `2.5px dashed ${validationErrors.aadhaarBack ? 'var(--color-error)' : 'var(--color-white-0.08)'}`,
+                          border: `2.5px dashed ${validationErrors.aadhaarBack ? 'var(--color-error)' : 'var(--color-white-0.3)'}`,
                           borderRadius: '12px',
                           padding: '30px 20px',
                           textAlign: 'center',
@@ -861,12 +855,10 @@ export function KycVerification() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
                   <button
                     onClick={handlePrev}
+                    className="btn-glass"
                     style={{
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
                       borderRadius: '8px',
                       padding: '10px 20px',
-                      color: 'var(--color-text-sub)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -879,19 +871,16 @@ export function KycVerification() {
                   </button>
                   <button
                     onClick={handleNext}
+                    className="btn-glass-accent"
                     style={{
-                      background: 'var(--color-accent)',
-                      border: 'none',
                       borderRadius: '8px',
                       padding: '10px 24px',
-                      color: 'var(--color-text-inverted)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 12px var(--color-accent-0.2)'
+                      gap: '8px'
                     }}
                   >
                     Bank Details <ArrowRight size={14} />
@@ -1048,16 +1037,13 @@ export function KycVerification() {
                       </div>
                       <button
                         onClick={handleVerifyBankDetails}
+                        className="btn-glass-accent"
                         style={{
-                          background: 'var(--color-accent)',
-                          border: 'none',
                           borderRadius: '8px',
                           padding: '10px 24px',
-                          color: 'var(--color-text-inverted)',
                           fontSize: '13px',
                           fontWeight: 600,
                           cursor: 'pointer',
-                          boxShadow: '0 4px 12px var(--color-accent-0.2)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px'
@@ -1106,12 +1092,10 @@ export function KycVerification() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
                   <button
                     onClick={handlePrev}
+                    className="btn-glass"
                     style={{
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
                       borderRadius: '8px',
                       padding: '10px 20px',
-                      color: 'var(--color-text-sub)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -1124,19 +1108,16 @@ export function KycVerification() {
                   </button>
                   <button
                     onClick={handleNext}
+                    className="btn-glass-accent"
                     style={{
-                      background: 'var(--color-accent)',
-                      border: 'none',
                       borderRadius: '8px',
                       padding: '10px 24px',
-                      color: 'var(--color-text-inverted)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 12px var(--color-accent-0.2)'
+                      gap: '8px'
                     }}
                   >
                     Proceed to Signature <ArrowRight size={14} />
@@ -1163,7 +1144,7 @@ export function KycVerification() {
                   <label style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600 }}>Signature Photo (White Background)</label>
                   {!filePreviews.signatureDocument ? (
                     <div style={{
-                      border: `2.5px dashed ${validationErrors.signature ? 'var(--color-error)' : 'var(--color-white-0.08)'}`,
+                      border: `2.5px dashed ${validationErrors.signature ? 'var(--color-error)' : 'var(--color-white-0.3)'}`,
                       borderRadius: '12px',
                       padding: '40px 20px',
                       textAlign: 'center',
@@ -1208,12 +1189,10 @@ export function KycVerification() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
                   <button
                     onClick={handlePrev}
+                    className="btn-glass"
                     style={{
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
                       borderRadius: '8px',
                       padding: '10px 20px',
-                      color: 'var(--color-text-sub)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -1226,19 +1205,16 @@ export function KycVerification() {
                   </button>
                   <button
                     onClick={handleNext}
+                    className="btn-glass-accent"
                     style={{
-                      background: 'var(--color-accent)',
-                      border: 'none',
                       borderRadius: '8px',
                       padding: '10px 24px',
-                      color: 'var(--color-text-inverted)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 12px var(--color-accent-0.2)'
+                      gap: '8px'
                     }}
                   >
                     Profile Details <ArrowRight size={14} />
@@ -1525,12 +1501,10 @@ export function KycVerification() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
                   <button
                     onClick={handlePrev}
+                    className="btn-glass"
                     style={{
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
                       borderRadius: '8px',
                       padding: '10px 20px',
-                      color: 'var(--color-text-sub)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -1543,19 +1517,16 @@ export function KycVerification() {
                   </button>
                   <button
                     onClick={handleNext}
+                    className="btn-glass-accent"
                     style={{
-                      background: 'var(--color-accent)',
-                      border: 'none',
                       borderRadius: '8px',
                       padding: '10px 24px',
-                      color: 'var(--color-text-inverted)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 12px var(--color-accent-0.2)'
+                      gap: '8px'
                     }}
                   >
                     Review & Consents <ArrowRight size={14} />
@@ -1707,12 +1678,10 @@ export function KycVerification() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
                   <button
                     onClick={handlePrev}
+                    className="btn-glass"
                     style={{
-                      background: 'var(--color-white-0.04)',
-                      border: '1px solid var(--color-white-0.08)',
                       borderRadius: '8px',
                       padding: '10px 20px',
-                      color: 'var(--color-text-sub)',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -1726,19 +1695,16 @@ export function KycVerification() {
                   <button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
+                    className="btn-glass-success"
                     style={{
-                      background: 'var(--color-success)',
-                      border: 'none',
                       borderRadius: '8px',
                       padding: '10px 28px',
-                      color: 'var(--color-text-inverted)',
                       fontSize: '13.5px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      boxShadow: '0 4px 14px var(--color-success-0.2)',
                       opacity: isSubmitting ? 0.7 : 1
                     }}
                   >

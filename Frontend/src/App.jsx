@@ -4,6 +4,7 @@ import { AuthScreen } from './features/auth/AuthScreen';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import socket from "./services/socket.js";
+import { initializeMarketSocketListener } from "./services/marketRealtime.js";
 
 const viewRoutes = {
   landing: '/',
@@ -35,6 +36,7 @@ function clearSession() {
 }
 
 export default function App() {
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const [view, setView] = useState(() => {
     const routeView = getViewFromPath(window.location.pathname);
     if (hasActiveSession()) {
@@ -76,12 +78,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const unsubscribeRealtime = initializeMarketSocketListener();
+
     socket.on("connect", () => {
       console.log("Socket Connected:", socket.id);
-    });
-
-    socket.on("market:update", (data) => {
-      console.log("Received from backend:", data);
     });
 
     socket.on("disconnect", () => {
@@ -89,8 +89,8 @@ export default function App() {
     });
 
     return () => {
+      unsubscribeRealtime?.();
       socket.off("connect");
-      socket.off("market:update");
       socket.off("disconnect");
     };
   }, []);
@@ -123,7 +123,7 @@ export default function App() {
   };
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy_client_id'}>
+    <GoogleOAuthProvider clientId={googleClientId}>
       <div style={{ minHeight: '100vh', background: 'var(--color-bg-base)', color: 'var(--color-text-main)' }}>
         {/* MARKER-MAKE-KIT-INVOKED */}
         {view === 'landing' && (

@@ -19,7 +19,12 @@ const {
   getPendingKyc,
   getKyc,
   approveKyc,
-  rejectKyc
+  rejectKyc,
+  updateCircuitBreaker,
+  inspectOrderBook,
+  cancelOrderFromBook,
+  replayMarketSession,
+  getEngineeringMetrics
 } = require(
   "../controllers/admin.controller"
 );
@@ -67,6 +72,31 @@ router.post(
 
 router.post(
     "/kyc/:userId/reject",rejectKyc
+);
+
+router.post(
+  "/risk/circuit-breaker",
+  updateCircuitBreaker
+);
+
+router.get(
+  "/order-book/:symbol",
+  inspectOrderBook
+);
+
+router.delete(
+  "/order-book/orders/:id",
+  cancelOrderFromBook
+);
+
+router.get(
+  "/replay",
+  replayMarketSession
+);
+
+router.get(
+  "/metrics",
+  getEngineeringMetrics
 );
 
 module.exports = router;

@@ -21,13 +21,15 @@ const AUTH_CSS = `
   }
   .auth-live-dot { animation: auth-live-pulse 2.2s ease-in-out infinite; }
   
-  /* Autofill fix */
+  /* Autofill fix across all themes */
   input:-webkit-autofill,
   input:-webkit-autofill:hover, 
   input:-webkit-autofill:focus, 
   input:-webkit-autofill:active {
-    transition: background-color 5000s ease-in-out 0s;
+    -webkit-box-shadow: 0 0 0px 1000px rgba(var(--color-bg-panel-rgb), 0.95) inset !important;
     -webkit-text-fill-color: var(--color-text-main) !important;
+    caret-color: var(--color-text-main) !important;
+    transition: background-color 50000s ease-in-out 0s !important;
   }
 
   /* Improve placeholder visibility */
@@ -250,12 +252,16 @@ function InputField({ type, label, placeholder, icon: Icon, value, onChange }) {
       <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--color-text-sub)', marginBottom: '7px', letterSpacing: '0.025em' }}>{label}</label>
       <div style={{
         position: 'relative', display: 'flex', alignItems: 'center',
-        background: 'var(--color-white-0.08)',
-        border: `1px solid ${focused ? 'var(--color-accent-0.5)' : 'var(--color-white-0.12)'}`,
-        borderRadius: '9px', transition: 'all 0.2s',
-        boxShadow: focused ? '0 0 0 3px var(--color-accent-0.1)' : 'none'
+        background: focused ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.01)',
+        border: focused ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '9px', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: focused 
+          ? '0 0 0 3px rgba(59, 130, 246, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)' 
+          : '0 4px 20px 0 rgba(0, 0, 0, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.02)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
       }}>
-        <div style={{ padding: '0 13px', color: focused ? 'var(--color-accent)' : 'var(--color-text-dim)', transition: 'color 0.2s', flexShrink: 0 }}>
+        <div style={{ padding: '0 13px', color: focused ? 'var(--color-accent)' : 'var(--color-text-dim)', transition: 'color 0.25s', flexShrink: 0 }}>
           <Icon size={14} />
         </div>
         <input
@@ -273,7 +279,13 @@ function InputField({ type, label, placeholder, icon: Icon, value, onChange }) {
         
         {isPass &&
           <button type="button" onClick={() => setShowPass((p) => !p)}
-            style={{ padding: '0 13px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-dim)', display: 'flex', alignItems: 'center' }}>
+            style={{ 
+              padding: '0 13px', background: 'none', border: 'none', cursor: 'pointer', 
+              color: 'var(--color-text-dim)', display: 'flex', alignItems: 'center',
+              transition: 'color 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-text-main)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-dim)'}>
             {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         }
@@ -287,15 +299,30 @@ function SubmitBtn({ label, onClick, loading = false }) {
   return (
     <button onClick={onClick} disabled={loading}
       style={{
-        width: '100%', padding: '13px', background: 'var(--color-accent)', border: 'none',
-        borderRadius: '9px', color: 'var(--color-text-inverted)', fontSize: '14px', fontWeight: 600,
+        width: '100%', padding: '13px',
+        background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.12) 100%)',
+        border: '1px solid rgba(59, 130, 246, 0.4)',
+        borderRadius: '9px', color: '#FFFFFF', fontSize: '14px', fontWeight: 600,
         fontFamily: 'DM Sans, sans-serif', cursor: 'pointer', marginBottom: '18px',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-        transition: 'all 0.22s', boxShadow: '0 4px 20px var(--color-accent-0.3)',
+        transition: 'all 0.22s',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 4px 15px rgba(59, 130, 246, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         opacity: loading ? 0.72 : 1
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = '#3D7BF0'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 28px var(--color-accent-0.4)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 20px var(--color-accent-0.3)'; }}>
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.38) 0%, rgba(37, 99, 235, 0.2) 100%)';
+        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.6)';
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.boxShadow = '0 12px 36px 0 rgba(0, 0, 0, 0.45), 0 8px 24px rgba(59, 130, 246, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.25)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.12) 100%)';
+        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+        e.currentTarget.style.transform = '';
+        e.currentTarget.style.boxShadow = '0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 4px 15px rgba(59, 130, 246, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)';
+      }}>
       
       {loading ? 'Please wait...' : label} {!loading && <ArrowRight size={14} />}
     </button>
@@ -307,17 +334,37 @@ function GoogleBtn({ onClick, loading }) {
   return (
     <button onClick={onClick} disabled={loading}
       style={{
-        width: '100%', padding: '12px', background: 'var(--color-white-0.04)',
-        border: '1px solid var(--color-white-0.09)', borderRadius: '9px',
+        width: '100%', padding: '12px',
+        background: 'rgba(255, 255, 255, 0.03)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '9px',
         color: 'var(--color-text-main)', fontSize: '13px', fontWeight: 500,
         fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
-        transition: 'all 0.2s', marginBottom: '20px', opacity: loading ? 0.7 : 1
+        transition: 'all 0.2s', marginBottom: '20px',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        opacity: loading ? 0.7 : 1
       }}
-      onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.background = 'var(--color-white-0.07)'; e.currentTarget.style.borderColor = 'var(--color-white-0.14)'; } }}
-      onMouseLeave={(e) => { if (!loading) { e.currentTarget.style.background = 'var(--color-white-0.04)'; e.currentTarget.style.borderColor = 'var(--color-white-0.09)'; } }}>
+      onMouseEnter={(e) => {
+        if (!loading) {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.16)';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.boxShadow = '0 12px 36px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!loading) {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+          e.currentTarget.style.transform = '';
+          e.currentTarget.style.boxShadow = '0 8px 32px 0 rgba(0, 0, 0, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)';
+        }
+      }}>
       
-      <svg width="15" height="15" viewBox="0 0 24 24">
+      <svg width="15" height="15" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />

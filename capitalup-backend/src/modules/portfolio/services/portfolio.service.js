@@ -1,3 +1,5 @@
+const { getUserBalance } = require("./balance.service");
+
 const {
   findHoldingBySymbol,
   createHolding,
@@ -134,6 +136,8 @@ async function getPortfolio(
       userId
     );
 
+  const balance = await getUserBalance(userId);
+
   let totalInvested = 0;
 
   let currentValue = 0;
@@ -142,24 +146,8 @@ async function getPortfolio(
     await Promise.all(
       holdings.map(
         async (holding) => {
-          const cachedPrice =
-            await redisClient.get(
-              `stock:${holding.symbol}`
-            );
-
-          let currentPrice = 0;
-
-          if (cachedPrice) {
-            const parsed =
-              JSON.parse(
-                cachedPrice
-              );
-
-            currentPrice =
-              Number(
-                parsed.price
-              );
-          }
+          const stock = await findStockBySymbol(holding.symbol);
+          const currentPrice = stock ? Number(stock.lastPrice || 0) : 0;
 
           const investedValue =
             Number(
@@ -254,6 +242,7 @@ async function getPortfolio(
         Number(
           totalProfitLossPercentage
         ),
+      balance,
     },
 
     holdings: portfolio,

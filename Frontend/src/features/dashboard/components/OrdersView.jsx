@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, AlertCircle, XCircle } from 'lucide-react';
+import { ClipboardList, AlertCircle, XCircle, RefreshCw, Clock, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
 
 export function OrdersView() {
   const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-  const token = localStorage.getItem('capitalup-access-token');
 
   const [marketOrders, setMarketOrders] = useState([]);
   const [limitOrders, setLimitOrders] = useState([]);
@@ -11,46 +10,55 @@ export function OrdersView() {
   const [loading, setLoading] = useState(true);
   const [cancelError, setCancelError] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState('');
+  const [timeline, setTimeline] = useState(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+
+  const getFreshToken = () => localStorage.getItem('capitalup-access-token') || '';
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      
-      // Fetch market orders
-      const marketRes = await fetch(`${API_BASE_URL}/orders`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const marketData = await marketRes.json();
+      let activeToken = getFreshToken();
 
-      // Fetch limit orders
-      const limitRes = await fetch(`${API_BASE_URL}/limit-orders`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const limitData = await limitRes.json();
+      const fetchWithAuth = async (url) => {
+        let res = await fetch(url, { headers: { Authorization: `Bearer ${activeToken}` } });
+        if (res.status === 401) {
+          const refreshToken = localStorage.getItem('capitalup-refresh-token');
+          if (refreshToken) {
+            try {
+              const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken })
+              });
+              const refreshResult = await refreshRes.json();
+              if (refreshRes.ok && refreshResult.accessToken) {
+                localStorage.setItem('capitalup-access-token', refreshResult.accessToken);
+                localStorage.setItem('capitalup-session-expiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString());
+                activeToken = refreshResult.accessToken;
+                res = await fetch(url, { headers: { Authorization: `Bearer ${activeToken}` } });
+              }
+            } catch (e) {}
+          }
+        }
+        return res.json();
+      };
 
-      // Fetch stop orders
-      const stopRes = await fetch(`${API_BASE_URL}/stop-orders`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const stopData = await stopRes.json();
+      // Fetch market, limit, and stop orders concurrently
+      const [marketData, limitData, stopData] = await Promise.all([
+        fetchWithAuth(`${API_BASE_URL}/orders`),
+        fetchWithAuth(`${API_BASE_URL}/limit-orders`),
+        fetchWithAuth(`${API_BASE_URL}/stop-orders`)
+      ]);
 
-      if (Array.isArray(marketData)) {
-        setMarketOrders(marketData);
-      } else if (marketData && Array.isArray(marketData.data)) {
-        setMarketOrders(marketData.data);
-      }
+      if (Array.isArray(marketData)) setMarketOrders(marketData);
+      else if (marketData && Array.isArray(marketData.data)) setMarketOrders(marketData.data);
 
-      if (Array.isArray(limitData)) {
-        setLimitOrders(limitData);
-      } else if (limitData && Array.isArray(limitData.data)) {
-        setLimitOrders(limitData.data);
-      }
+      if (Array.isArray(limitData)) setLimitOrders(limitData);
+      else if (limitData && Array.isArray(limitData.data)) setLimitOrders(limitData.data);
 
-      if (Array.isArray(stopData)) {
-        setStopOrders(stopData);
-      } else if (stopData && Array.isArray(stopData.data)) {
-        setStopOrders(stopData.data);
-      }
+      if (Array.isArray(stopData)) setStopOrders(stopData);
+      else if (stopData && Array.isArray(stopData.data)) setStopOrders(stopData.data);
 
     } catch (err) {
       console.error('Failed to load orders:', err);
@@ -61,24 +69,23 @@ export function OrdersView() {
 
   useEffect(() => {
     fetchOrders();
-  }, [API_BASE_URL, token]);
+  }, []);
 
   const handleCancelLimitOrder = async (id) => {
     setCancelError('');
     setCancelSuccess('');
     try {
+      const activeToken = getFreshToken();
       const res = await fetch(`${API_BASE_URL}/limit-orders/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${activeToken}` }
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to cancel limit order');
-      }
+      if (!res.ok) throw new Error(data.message || 'Failed to cancel limit order');
 
       setCancelSuccess('Limit order cancelled successfully! Any linked OCO stop-loss was cancelled too.');
       fetchOrders();
-      window.dispatchEvent(new Event('holdingsChanged')); // trigger portfolio update
+      window.dispatchEvent(new Event('holdingsChanged'));
     } catch (err) {
       setCancelError(err.message);
     }
@@ -88,104 +95,263 @@ export function OrdersView() {
     setCancelError('');
     setCancelSuccess('');
     try {
+      const activeToken = getFreshToken();
       const res = await fetch(`${API_BASE_URL}/stop-orders/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${activeToken}` }
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to cancel stop order');
-      }
+      if (!res.ok) throw new Error(data.message || 'Failed to cancel stop order');
 
       setCancelSuccess('Stop order cancelled successfully! Any linked OCO limit order was cancelled too.');
       fetchOrders();
-      window.dispatchEvent(new Event('holdingsChanged')); // trigger portfolio update
+      window.dispatchEvent(new Event('holdingsChanged'));
     } catch (err) {
       setCancelError(err.message);
     }
   };
 
-  // Limit orders that have a live linked stop leg (OCO pairs)
+  const openTimeline = async (id) => {
+    setTimelineLoading(true);
+    setCancelError('');
+    try {
+      const activeToken = getFreshToken();
+      const res = await fetch(`${API_BASE_URL}/orders/${id}/timeline`, {
+        headers: { Authorization: `Bearer ${activeToken}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to load timeline');
+      setTimeline({ id, events: data.data || [] });
+    } catch (err) {
+      setCancelError(err.message);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   const ocoLimitIds = new Set(
     stopOrders
-      .filter(s => s.status === 'PENDING' && (s.linkedLimitOrderId || s.linked_limit_order_id))
-      .map(s => s.linkedLimitOrderId || s.linked_limit_order_id)
+      .map((o) => o.linkedLimitOrderId || o.linked_limit_order_id)
+      .filter(Boolean)
   );
 
   const ocoBadge = (
     <span style={{
-      fontSize: '9px',
+      fontSize: '9.5px',
       fontWeight: 700,
-      color: 'var(--color-warning)',
-      background: 'var(--color-warning-0.1)',
-      padding: '2px 5px',
-      borderRadius: '4px'
+      color: '#f59e0b',
+      background: 'rgba(245, 158, 11, 0.15)',
+      padding: '2px 7px',
+      borderRadius: '6px',
+      border: '1px solid rgba(245, 158, 11, 0.3)',
+      letterSpacing: '0.04em'
     }}>
       OCO
     </span>
   );
 
+  const timelineButton = (id) => (
+    <button
+      onClick={() => openTimeline(id)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        background: 'rgba(var(--color-white-rgb), 0.04)',
+        border: '1px solid rgba(var(--color-white-rgb), 0.09)',
+        color: 'var(--color-text-sub)',
+        fontSize: '11px',
+        padding: '4px 9px',
+        borderRadius: '7px',
+        cursor: 'pointer',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.08)';
+        e.currentTarget.style.color = 'var(--color-text-main)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.04)';
+        e.currentTarget.style.color = 'var(--color-text-sub)';
+      }}
+    >
+      <Clock size={11} /> Timeline
+    </button>
+  );
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative', minHeight: 'calc(100vh - 120px)' }}>
+      {/* Background Orbs */}
+      <div style={{
+        position: 'absolute',
+        top: '-5%',
+        right: '-5%',
+        width: '300px',
+        height: '300px',
+        background: 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
+        borderRadius: '50%',
+        filter: 'blur(50px)',
+        zIndex: 0,
+        pointerEvents: 'none'
+      }}></div>
+
+      {/* Header */}
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', margin: 0 }}>
             Order Book
           </h1>
-          <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-            Track executed market transactions and pending limit &amp; stop orders
+          <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+            Track real-time market executions, pending limit orders, and stop-loss triggers
           </p>
         </div>
         <button
           onClick={fetchOrders}
+          disabled={loading}
           style={{
-            background: 'var(--color-white-0.04)',
-            border: '1px solid var(--color-white-0.08)',
-            borderRadius: '8px',
-            padding: '6px 12px',
-            color: 'var(--color-text-sub)',
-            fontSize: '12px',
-            cursor: 'pointer'
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(var(--color-white-rgb), 0.05)',
+            border: '1px solid rgba(var(--color-white-rgb), 0.1)',
+            borderRadius: '12px',
+            padding: '8px 16px',
+            color: 'var(--color-text-main)',
+            fontSize: '12.5px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+            e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.05)';
+            e.currentTarget.style.borderColor = 'rgba(var(--color-white-rgb), 0.1)';
+            e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
-          Refresh Orders
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} style={{ color: '#10b981' }} />
+          Refresh Book
         </button>
       </div>
 
       {cancelError && (
-        <div style={{ background: 'var(--color-error-0.1)', border: '1px solid var(--color-error-0.2)', padding: '8px 12px', borderRadius: '8px', color: 'var(--color-error)', fontSize: '12px' }}>
+        <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)', padding: '10px 16px', borderRadius: '12px', color: '#ef4444', fontSize: '13px', fontWeight: 500 }}>
           {cancelError}
         </div>
       )}
 
       {cancelSuccess && (
-        <div style={{ background: 'var(--color-success-0.1)', border: '1px solid var(--color-success-0.2)', padding: '8px 12px', borderRadius: '8px', color: 'var(--color-success)', fontSize: '12px' }}>
+        <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '10px 16px', borderRadius: '12px', color: '#10b981', fontSize: '13px', fontWeight: 500 }}>
           {cancelSuccess}
         </div>
       )}
 
+      {/* Audit Timeline Drawer */}
+      {timeline && (
+        <div style={{
+          position: 'relative',
+          zIndex: 2,
+          background: 'rgba(var(--color-bg-panel-rgb), 0.85)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          padding: '18px 22px',
+          borderRadius: '18px',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 15px 35px rgba(0, 0, 0, 0.15)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--color-text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={15} color="#10b981" /> Audit Trail Timeline · <span style={{ fontFamily: 'monospace', color: '#10b981' }}>{timeline.id.slice(0, 8)}</span>
+            </div>
+            <button
+              onClick={() => setTimeline(null)}
+              style={{
+                background: 'rgba(var(--color-white-rgb), 0.05)',
+                border: '1px solid rgba(var(--color-white-rgb), 0.1)',
+                color: 'var(--color-text-muted)',
+                borderRadius: '8px',
+                padding: '4px 10px',
+                fontSize: '11px',
+                cursor: 'pointer'
+              }}
+            >
+              Close
+            </button>
+          </div>
+
+          {timeline.events.length === 0 ? (
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>No timeline events recorded yet.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {timeline.events.map((event) => (
+                <div
+                  key={event.sequence}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '160px 1fr auto',
+                    gap: '12px',
+                    fontSize: '12px',
+                    borderTop: '1px solid rgba(var(--color-white-rgb), 0.06)',
+                    paddingTop: '8px',
+                    alignItems: 'center'
+                  }}
+                >
+                  <span style={{ color: '#10b981', fontWeight: 600, fontFamily: 'monospace' }}>{event.event_type}</span>
+                  <span style={{ color: 'var(--color-text-main)' }}>{event.payload?.code || event.payload?.symbol || 'Order lifecycle event logged'}</span>
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>{new Date(event.created_at).toLocaleTimeString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {loading ? (
-        <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '40px', fontSize: '13px' }}>Loading orders...</div>
+        <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '60px', fontSize: '14px', position: 'relative', zIndex: 1 }}>
+          <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px', color: '#10b981' }} />
+          Loading Order Book...
+        </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="max-md:grid-cols-1">
-          {/* Active Limit Orders */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }} className="max-xl:grid-cols-1">
+          {/* Pending Limit Orders */}
           <div style={{
-            background: 'var(--color-bg-panel-0.6)',
-            border: '1px solid var(--color-white-0.07)',
-            borderRadius: '16px',
+            background: 'rgba(var(--color-bg-panel-rgb), 0.75)',
+            border: '1px solid rgba(var(--color-white-rgb), 0.08)',
+            borderRadius: '20px',
             padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px'
+            gap: '16px',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 15px 35px rgba(0, 0, 0, 0.1)'
           }}>
-            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-main)', borderBottom: '1px solid var(--color-white-0.06)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertCircle size={15} color="var(--color-accent)" />
-              Pending Limit Orders ({limitOrders.filter(o => o.status === 'PENDING').length})
+            <h2 style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-text-main)',
+              borderBottom: '1px solid rgba(var(--color-white-rgb), 0.08)',
+              paddingBottom: '12px',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} color="#3b82f6" /> Pending Limit Orders
+              </span>
+              <span style={{ fontSize: '11px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', padding: '2px 8px', borderRadius: '100px', fontWeight: 700 }}>
+                {limitOrders.filter(o => o.status === 'PENDING').length}
+              </span>
             </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '450px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '480px' }}>
               {limitOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '20px', fontSize: '12px' }}>No limit orders found</div>
+                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '30px 10px', fontSize: '12.5px' }}>No limit orders found</div>
               ) : (
                 limitOrders.map((order) => {
                   const isBuy = order.side === 'BUY';
@@ -196,31 +362,46 @@ export function OrdersView() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '12px',
-                        borderRadius: '10px',
-                        background: 'var(--color-white-0.03)',
-                        border: '1px solid var(--color-white-0.05)'
+                        padding: '14px',
+                        borderRadius: '14px',
+                        background: 'rgba(var(--color-white-rgb), 0.03)',
+                        border: '1px solid rgba(var(--color-white-rgb), 0.06)',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.06)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.03)';
+                        e.currentTarget.style.borderColor = 'rgba(var(--color-white-rgb), 0.06)';
+                        e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{
-                            fontSize: '9px',
+                            fontSize: '9.5px',
                             fontWeight: 700,
-                            color: isBuy ? 'var(--color-success)' : 'var(--color-error)',
-                            background: isBuy ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)',
-                            padding: '2px 5px',
-                            borderRadius: '4px'
+                            color: isBuy ? '#10b981' : '#ef4444',
+                            background: isBuy ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            padding: '2px 6px',
+                            borderRadius: '5px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
                           }}>
+                            {isBuy ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
                             {order.side}
                           </span>
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>{order.symbol}</span>
+                          <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--color-text-main)' }}>{order.symbol}</span>
                           {ocoLimitIds.has(order.id) && ocoBadge}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                          Qty: {order.quantity} · Limit: ₹{Number(order.limitPrice || order.limit_price).toFixed(2)}
+                        <div style={{ fontSize: '11.5px', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+                          Qty: <strong style={{ color: 'var(--color-text-main)' }}>{order.quantity}</strong> · Limit: <strong style={{ color: '#10b981' }}>₹{Number(order.limitPrice || order.limit_price).toFixed(2)}</strong>
                         </div>
-                        <div style={{ fontSize: '9px', color: 'var(--color-text-dim)', marginTop: '4px' }}>
+                        <div style={{ fontSize: '9.5px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                           {new Date(order.createdAt || order.created_at).toLocaleString()}
                         </div>
                       </div>
@@ -228,10 +409,10 @@ export function OrdersView() {
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                         <span style={{
                           fontSize: '10px',
-                          fontWeight: 500,
-                          color: order.status === 'PENDING' ? 'var(--color-warning)' : order.status === 'FILLED' ? 'var(--color-success)' : 'var(--color-text-dim)',
-                          background: order.status === 'PENDING' ? 'var(--color-warning-0.1)' : order.status === 'FILLED' ? 'var(--color-success-0.1)' : 'var(--color-white-0.05)',
-                          padding: '3px 8px',
+                          fontWeight: 600,
+                          color: order.status === 'PENDING' ? '#f59e0b' : order.status === 'FILLED' ? '#10b981' : 'var(--color-text-muted)',
+                          background: order.status === 'PENDING' ? 'rgba(245, 158, 11, 0.15)' : order.status === 'FILLED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(var(--color-white-rgb), 0.05)',
+                          padding: '3px 9px',
                           borderRadius: '100px'
                         }}>
                           {order.status}
@@ -243,19 +424,20 @@ export function OrdersView() {
                               display: 'flex',
                               alignItems: 'center',
                               gap: '4px',
-                              background: 'var(--color-error-0.1)',
-                              border: '1px solid var(--color-error-0.2)',
-                              color: 'var(--color-error)',
-                              fontSize: '10px',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              color: '#ef4444',
+                              fontSize: '11px',
                               fontWeight: 500,
                               padding: '3px 8px',
                               borderRadius: '6px',
                               cursor: 'pointer'
                             }}
                           >
-                            <XCircle size={10} /> Cancel
+                            <XCircle size={11} /> Cancel
                           </button>
                         )}
+                        {timelineButton(order.id)}
                       </div>
                     </div>
                   );
@@ -266,22 +448,38 @@ export function OrdersView() {
 
           {/* Pending Stop Orders */}
           <div style={{
-            background: 'var(--color-bg-panel-0.6)',
-            border: '1px solid var(--color-white-0.07)',
-            borderRadius: '16px',
+            background: 'rgba(var(--color-bg-panel-rgb), 0.75)',
+            border: '1px solid rgba(var(--color-white-rgb), 0.08)',
+            borderRadius: '20px',
             padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px'
+            gap: '16px',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 15px 35px rgba(0, 0, 0, 0.1)'
           }}>
-            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-main)', borderBottom: '1px solid var(--color-white-0.06)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertCircle size={15} color="var(--color-warning)" />
-              Pending Stop Orders ({stopOrders.filter(o => o.status === 'PENDING').length})
+            <h2 style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-text-main)',
+              borderBottom: '1px solid rgba(var(--color-white-rgb), 0.08)',
+              paddingBottom: '12px',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} color="#f59e0b" /> Pending Stop Orders
+              </span>
+              <span style={{ fontSize: '11px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '2px 8px', borderRadius: '100px', fontWeight: 700 }}>
+                {stopOrders.filter(o => o.status === 'PENDING').length}
+              </span>
             </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '450px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '480px' }}>
               {stopOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '20px', fontSize: '12px' }}>No stop orders found</div>
+                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '30px 10px', fontSize: '12.5px' }}>No stop orders found</div>
               ) : (
                 stopOrders.map((order) => {
                   const isBuy = order.side === 'BUY';
@@ -293,31 +491,46 @@ export function OrdersView() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '12px',
-                        borderRadius: '10px',
-                        background: 'var(--color-white-0.03)',
-                        border: '1px solid var(--color-white-0.05)'
+                        padding: '14px',
+                        borderRadius: '14px',
+                        background: 'rgba(var(--color-white-rgb), 0.03)',
+                        border: '1px solid rgba(var(--color-white-rgb), 0.06)',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.06)';
+                        e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.03)';
+                        e.currentTarget.style.borderColor = 'rgba(var(--color-white-rgb), 0.06)';
+                        e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{
-                            fontSize: '9px',
+                            fontSize: '9.5px',
                             fontWeight: 700,
-                            color: isBuy ? 'var(--color-success)' : 'var(--color-error)',
-                            background: isBuy ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)',
-                            padding: '2px 5px',
-                            borderRadius: '4px'
+                            color: isBuy ? '#10b981' : '#ef4444',
+                            background: isBuy ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            padding: '2px 6px',
+                            borderRadius: '5px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
                           }}>
+                            {isBuy ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
                             {order.side} STOP
                           </span>
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>{order.symbol}</span>
+                          <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--color-text-main)' }}>{order.symbol}</span>
                           {isLinked && ocoBadge}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                          Qty: {order.quantity} · Stop: ₹{Number(order.stopPrice || order.stop_price).toFixed(2)}
+                        <div style={{ fontSize: '11.5px', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+                          Qty: <strong style={{ color: 'var(--color-text-main)' }}>{order.quantity}</strong> · Stop: <strong style={{ color: '#ef4444' }}>₹{Number(order.stopPrice || order.stop_price).toFixed(2)}</strong>
                         </div>
-                        <div style={{ fontSize: '9px', color: 'var(--color-text-dim)', marginTop: '4px' }}>
+                        <div style={{ fontSize: '9.5px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                           {new Date(order.createdAt || order.created_at).toLocaleString()}
                         </div>
                       </div>
@@ -325,10 +538,10 @@ export function OrdersView() {
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                         <span style={{
                           fontSize: '10px',
-                          fontWeight: 500,
-                          color: order.status === 'PENDING' ? 'var(--color-warning)' : order.status === 'FILLED' ? 'var(--color-success)' : 'var(--color-text-dim)',
-                          background: order.status === 'PENDING' ? 'var(--color-warning-0.1)' : order.status === 'FILLED' ? 'var(--color-success-0.1)' : 'var(--color-white-0.05)',
-                          padding: '3px 8px',
+                          fontWeight: 600,
+                          color: order.status === 'PENDING' ? '#f59e0b' : order.status === 'FILLED' ? '#10b981' : 'var(--color-text-muted)',
+                          background: order.status === 'PENDING' ? 'rgba(245, 158, 11, 0.15)' : order.status === 'FILLED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(var(--color-white-rgb), 0.05)',
+                          padding: '3px 9px',
                           borderRadius: '100px'
                         }}>
                           {order.status}
@@ -340,19 +553,20 @@ export function OrdersView() {
                               display: 'flex',
                               alignItems: 'center',
                               gap: '4px',
-                              background: 'var(--color-error-0.1)',
-                              border: '1px solid var(--color-error-0.2)',
-                              color: 'var(--color-error)',
-                              fontSize: '10px',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              color: '#ef4444',
+                              fontSize: '11px',
                               fontWeight: 500,
                               padding: '3px 8px',
                               borderRadius: '6px',
                               cursor: 'pointer'
                             }}
                           >
-                            <XCircle size={10} /> Cancel
+                            <XCircle size={11} /> Cancel
                           </button>
                         )}
+                        {timelineButton(order.id)}
                       </div>
                     </div>
                   );
@@ -363,22 +577,38 @@ export function OrdersView() {
 
           {/* Executed Market Orders */}
           <div style={{
-            background: 'var(--color-bg-panel-0.6)',
-            border: '1px solid var(--color-white-0.07)',
-            borderRadius: '16px',
+            background: 'rgba(var(--color-bg-panel-rgb), 0.75)',
+            border: '1px solid rgba(var(--color-white-rgb), 0.08)',
+            borderRadius: '20px',
             padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px'
+            gap: '16px',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 15px 35px rgba(0, 0, 0, 0.1)'
           }}>
-            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-main)', borderBottom: '1px solid var(--color-white-0.06)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ClipboardList size={15} color="var(--color-success)" />
-              Executed Market Orders ({marketOrders.length})
+            <h2 style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-text-main)',
+              borderBottom: '1px solid rgba(var(--color-white-rgb), 0.08)',
+              paddingBottom: '12px',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ClipboardList size={16} color="#10b981" /> Executed Market Orders
+              </span>
+              <span style={{ fontSize: '11px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '100px', fontWeight: 700 }}>
+                {marketOrders.length}
+              </span>
             </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '450px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '480px' }}>
               {marketOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '20px', fontSize: '12px' }}>No executed orders found</div>
+                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '30px 10px', fontSize: '12.5px' }}>No executed orders found</div>
               ) : (
                 marketOrders.map((order) => {
                   const isBuy = order.side === 'BUY';
@@ -389,45 +619,64 @@ export function OrdersView() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '12px',
-                        borderRadius: '10px',
-                        background: 'var(--color-white-0.03)',
-                        border: '1px solid var(--color-white-0.05)'
+                        padding: '14px',
+                        borderRadius: '14px',
+                        background: 'rgba(var(--color-white-rgb), 0.03)',
+                        border: '1px solid rgba(var(--color-white-rgb), 0.06)',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.06)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(var(--color-white-rgb), 0.03)';
+                        e.currentTarget.style.borderColor = 'rgba(var(--color-white-rgb), 0.06)';
+                        e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{
-                            fontSize: '9px',
+                            fontSize: '9.5px',
                             fontWeight: 700,
-                            color: isBuy ? 'var(--color-accent)' : 'var(--color-error)',
-                            background: isBuy ? 'var(--color-accent-0.1)' : 'var(--color-error-0.1)',
-                            padding: '2px 5px',
-                            borderRadius: '4px'
+                            color: isBuy ? '#10b981' : '#ef4444',
+                            background: isBuy ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            padding: '2px 6px',
+                            borderRadius: '5px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
                           }}>
+                            {isBuy ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
                             {order.side}
                           </span>
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>{order.symbol}</span>
+                          <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--color-text-main)' }}>{order.symbol}</span>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                          Qty: {order.quantity} · Price: ₹{Number(order.price).toFixed(2)}
+                        <div style={{ fontSize: '11.5px', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+                          Qty: <strong style={{ color: 'var(--color-text-main)' }}>{order.quantity}</strong> · Price: <strong style={{ color: 'var(--color-text-main)' }}>₹{Number(order.price).toFixed(2)}</strong>
                         </div>
-                        <div style={{ fontSize: '9px', color: 'var(--color-text-dim)', marginTop: '4px' }}>
+                        <div style={{ fontSize: '9.5px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                           {new Date(order.createdAt || order.created_at).toLocaleString()}
                         </div>
                       </div>
 
-                      <div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                         <span style={{
                           fontSize: '10px',
-                          fontWeight: 500,
-                          color: 'var(--color-success)',
-                          background: 'var(--color-success-0.1)',
-                          padding: '3px 8px',
-                          borderRadius: '100px'
+                          fontWeight: 600,
+                          color: '#10b981',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          padding: '3px 9px',
+                          borderRadius: '100px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}>
-                          FILLED
+                          <CheckCircle2 size={11} /> FILLED
                         </span>
+                        {timelineButton(order.id)}
                       </div>
                     </div>
                   );

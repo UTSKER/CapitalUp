@@ -18,6 +18,7 @@ async function create(
       symbol,
       side,
       quantity,
+      clientOrderId,
     } = req.body;
 
     const order =
@@ -27,6 +28,7 @@ async function create(
         side,
         quantity:
           Number(quantity),
+        clientOrderId,
       });
 
     return res.status(201).json({
@@ -36,10 +38,11 @@ async function create(
       data: order,
     });
   } catch (error) {
-    return res.status(400).json({
+    return res.status(error.statusCode || 400).json({
       success: false,
       message:
         error.message,
+      code: error.code,
     });
   }
 }
@@ -96,8 +99,19 @@ async function getOrder(
   }
 }
 
+async function getTimeline(req, res) {
+  try {
+    const { getOrderTimeline } = require("../../risk/services/risk.service");
+    const timeline = await getOrderTimeline(req.params.id, req.user.userId);
+    return res.status(200).json({ success: true, data: timeline });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   create,
   getOrders,
   getOrder,
+  getTimeline,
 };

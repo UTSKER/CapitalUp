@@ -6,26 +6,7 @@ jspm_packages/
 .npm/
 .yarn-integrity/
 
-# Caches
-.cache/
-.parcel-cache/
-.eslintcache/
-.vite-inspect/
-.turbo/
-
-# Production builds and outputs
-dist/
-**/dist/
-build/
-**/build/
-out/
-.next/
-.nuxt/
-.svelte-kit/
-coverage/
-.nyc_output/
-
-# Environment files
+# Environment files & Secrets
 .env
 .env.local
 .env.development.local
@@ -39,6 +20,37 @@ coverage/
 **/.env.production.local
 **/.env.*.local
 
+# Production builds & Outputs
+dist/
+**/dist/
+build/
+**/build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+coverage/
+.nyc_output/
+
+# Caches & Temporary Files
+.cache/
+.parcel-cache/
+.eslintcache/
+.vite/
+.vite-inspect/
+.turbo/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Generated Files & Database Artifacts
+/capitalup-backend/src/generated/prisma/
+prisma/migrations/dev.db
+*.db
+*.sqlite
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
@@ -47,7 +59,7 @@ pnpm-debug.log*
 *.log
 **/*.log
 
-# Editor/OS settings
+# Editor & System Files
 .vscode/
 .idea/
 .DS_Store
@@ -56,8 +68,18 @@ Thumbs.db
 *.ntvsca*
 *.njsproj
 *.sln
-*.sw?
 
-# Helper scripts
+# Temporary Utility & Test Scripts
 replace_colors.py
+check_defaults.js
+list_users.js
+reset.js
+test_*.js
+scratch/
 
+# Archives & User Downloads
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z

@@ -6,6 +6,7 @@ const {
   create,
   getOrders,
   getOrder,
+  getTimeline,
 } = require(
   "../controllers/order.controller"
 );
@@ -29,6 +30,11 @@ router.post(
 router.get(
   "/",
   getOrders
+);
+
+router.get(
+  "/:id/timeline",
+  getTimeline
 );
 
 router.get(

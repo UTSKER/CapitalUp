@@ -12,6 +12,10 @@ import { KycVerification } from './components/KycVerification';
 import { PersonalInformation } from './components/PersonalInformation';
 import { MarketsView } from './components/MarketsView';
 import { OrdersView } from './components/OrdersView';
+import { DepositModal } from './components/DepositModal';
+import { OperationsConsole } from './components/OperationsConsole';
+import { ChatView } from './components/ChatView';
+import { listenToMarketUpdates, applyMarketUpdateToStock } from '../../services/marketRealtime';
 
 const riskMetrics = [
   { label: 'Beta (1Y)', value: '0.94', neutral: true },
@@ -49,12 +53,42 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   const [activeTab, setActiveTab] = useState(() => getTabFromPath(window.location.pathname));
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
 
   const [stocks, setStocks] = useState([]);
   const [selectedStock, setSelectedStock] = useState(null);
   const [initialOrderSide, setInitialOrderSide] = useState('BUY');
 
   const [portfolioValue, setPortfolioValue] = useState(0);
+  const [holdingsValue, setHoldingsValue] = useState(0);
+
+  const currentDateString = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const getIsMarketOpen = () => {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const istTime = new Date(utc + (3600000 * 5.5));
+    
+    const day = istTime.getDay();
+    const hours = istTime.getHours();
+    const minutes = istTime.getMinutes();
+
+    if (day === 0 || day === 6) {
+      return false;
+    }
+
+    const timeInMinutes = hours * 60 + minutes;
+    const marketStart = 9 * 60 + 15; // 9:15 AM IST
+    const marketEnd = 15 * 60 + 30;  // 3:30 PM IST
+
+    return timeInMinutes >= marketStart && timeInMinutes <= marketEnd;
+  };
+
+  const isMarketOpen = getIsMarketOpen();
 
   const fetchStocks = async () => {
     if (!token) return;
@@ -64,7 +98,19 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
       });
       const result = await res.json();
       if (result.success) {
-        setStocks(result.data);
+        setStocks((prevStocks) => {
+          const nextStocks = Array.isArray(result.data) ? result.data : [];
+          const merged = [...prevStocks];
+          nextStocks.forEach((stock) => {
+            const existingIndex = merged.findIndex((item) => item.symbol === stock.symbol);
+            if (existingIndex >= 0) {
+              merged[existingIndex] = { ...merged[existingIndex], ...stock };
+            } else {
+              merged.push(stock);
+            }
+          });
+          return merged;
+        });
       }
     } catch (err) {
       console.error('Failed to fetch stocks in dashboard:', err);
@@ -74,6 +120,21 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   useEffect(() => {
     fetchStocks();
   }, [API_BASE_URL, token]);
+
+  useEffect(() => {
+    const stopListening = listenToMarketUpdates(({ symbol, stockData }) => {
+      setStocks((prevStocks) => prevStocks.map((stock) => (
+        stock.symbol === symbol ? applyMarketUpdateToStock(stock, { symbol, stockData }) : stock
+      )));
+
+      setSelectedStock((prevSelectedStock) => {
+        if (!prevSelectedStock || prevSelectedStock.symbol !== symbol) return prevSelectedStock;
+        return applyMarketUpdateToStock(prevSelectedStock, { symbol, stockData });
+      });
+    });
+
+    return stopListening;
+  }, []);
 
   const handleSelectStock = (stock, side) => {
     setSelectedStock(stock);
@@ -86,17 +147,44 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
   const [dayGainPercent, setDayGainPercent] = useState(0);
 
   const fetchPortfolioData = async () => {
-    const activeToken = localStorage.getItem('capitalup-access-token');
+    let activeToken = localStorage.getItem('capitalup-access-token');
     if (!activeToken) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/portfolio`, {
+      let res = await fetch(`${API_BASE_URL}/portfolio`, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
-      const result = await res.json();
+      let result = await res.json();
+
+      if (res.status === 401) {
+        const refreshToken = localStorage.getItem('capitalup-refresh-token');
+        if (refreshToken) {
+          try {
+            const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken })
+            });
+            const refreshResult = await refreshRes.json();
+            if (refreshRes.ok && refreshResult.accessToken) {
+              localStorage.setItem('capitalup-access-token', refreshResult.accessToken);
+              localStorage.setItem('capitalup-session-expiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString());
+              res = await fetch(`${API_BASE_URL}/portfolio`, {
+                headers: { Authorization: `Bearer ${refreshResult.accessToken}` }
+              });
+              result = await res.json();
+            }
+          } catch (e) {
+            console.error('Refresh failed:', e);
+          }
+        }
+      }
+
       if (res.ok) {
-        const cash = Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+        const cash = Number(result.data?.summary?.balance ?? 15000);
+        localStorage.setItem('capitalup-cash-balance', cash);
         const holdingsVal = Number(result.data?.summary?.current_value || 0);
         setPortfolioValue(cash + holdingsVal);
+        setHoldingsValue(holdingsVal);
 
         const invested = Number(result.data?.summary?.total_invested || 0);
         const profitLoss = holdingsVal - invested;
@@ -161,7 +249,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
       }}>
       
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} onTabChange={changeTab} onNavigate={onNavigate} />
+      <Sidebar activeTab={activeTab} onTabChange={changeTab} onNavigate={onNavigate} onAddFunds={() => setDepositModalOpen(true)} />
 
       {/* Main content */}
       <div style={{ flex: 1, marginLeft: '232px', minWidth: 0 }}>
@@ -228,14 +316,22 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'var(--color-success-0.08)',
-                border: '1px solid var(--color-success-0.2)',
+                background: isMarketOpen ? 'var(--color-success-0.08)' : 'var(--color-error-0.08)',
+                border: `1px solid ${isMarketOpen ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`,
                 borderRadius: '100px',
                 padding: '5px 12px'
               }}>
               
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-success)', boxShadow: '0 0 6px var(--color-success-0.7)' }} />
-              <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 500 }}>Market Open</span>
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: isMarketOpen ? 'var(--color-success)' : 'var(--color-error)',
+                boxShadow: `0 0 6px ${isMarketOpen ? 'var(--color-success-0.7)' : 'var(--color-error-0.7)'}`
+              }} />
+              <span style={{ fontSize: '11px', color: isMarketOpen ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>
+                {isMarketOpen ? 'Market Open' : 'Market Closed'}
+              </span>
             </div>
 
             {/* Notifications */}
@@ -466,6 +562,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                 setSelectedStock={setSelectedStock}
                 initialOrderSide={initialOrderSide}
                 setInitialOrderSide={setInitialOrderSide}
+                isMarketOpen={isMarketOpen}
               />
             </motion.div>
           ) : activeTab === 'orders' ? (
@@ -475,6 +572,18 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}>
               <OrdersView />
+            </motion.div>
+          ) : activeTab === 'chat' ? (
+            <motion.div
+              key="chat-view"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}>
+              <ChatView />
+            </motion.div>
+          ) : activeTab === 'operations' && user.role === 'ADMIN' ? (
+            <motion.div key="operations-console" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <OperationsConsole />
             </motion.div>
           ) : activeTab === 'overview' ? (
             <motion.div
@@ -531,16 +640,28 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               transition={{ duration: 0.5 }}>
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>
-                  Good morning, {firstName} — Tuesday, June 2, 2026
+                  Good morning, {firstName} — {currentDateString}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
                   <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
                     Portfolio Holdings
                   </h1>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: dayGain >= 0 ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)', border: `1px solid ${dayGain >= 0 ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`, borderRadius: '6px', padding: '4px 10px' }}>
-                    {dayGain >= 0 ? <ArrowUpRight size={13} color="var(--color-success)" /> : <ArrowDownRight size={13} color="var(--color-error)" />}
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: dayGain >= 0 ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>
-                      ₹{portfolioValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · {dayGain >= 0 ? '+' : ''}{dayGainPercent.toFixed(2)}% today
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: dayGain > 0 ? 'var(--color-success-0.1)' : dayGain < 0 ? 'var(--color-error-0.1)' : 'var(--color-white-0.05)',
+                    border: `1px solid ${dayGain > 0 ? 'var(--color-success-0.2)' : dayGain < 0 ? 'var(--color-error-0.2)' : 'var(--color-white-0.1)'}`,
+                    borderRadius: '6px',
+                    padding: '4px 10px'
+                  }}>
+                    {dayGain > 0 ? (
+                      <ArrowUpRight size={13} color="var(--color-success)" />
+                    ) : dayGain < 0 ? (
+                      <ArrowDownRight size={13} color="var(--color-error)" />
+                    ) : null}
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: dayGain > 0 ? 'var(--color-success)' : dayGain < 0 ? 'var(--color-error)' : 'var(--color-text-muted)', fontWeight: 500 }}>
+                      ₹{holdingsValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · {dayGain > 0 ? '+' : ''}{dayGainPercent.toFixed(2)}% today
                     </span>
                   </div>
                 </div>
@@ -561,7 +682,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                 </h1>
               </div>
               <div style={{ maxWidth: '800px', margin: '0 auto', height: '600px' }}>
-                <WatchlistPanel />
+                <WatchlistPanel onSelectStock={handleSelectStock} />
               </div>
             </motion.div>
           ) : activeTab === 'research' ? (
@@ -660,16 +781,28 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               transition={{ duration: 0.5 }}>
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>
-                  Good morning, {firstName} — Tuesday, June 2, 2026
+                  Good morning, {firstName} — {currentDateString}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
                   <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
                     Portfolio Overview
                   </h1>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: dayGain >= 0 ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)', border: `1px solid ${dayGain >= 0 ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`, borderRadius: '6px', padding: '4px 10px' }}>
-                    {dayGain >= 0 ? <ArrowUpRight size={13} color="var(--color-success)" /> : <ArrowDownRight size={13} color="var(--color-error)" />}
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: dayGain >= 0 ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 500 }}>
-                      ₹{portfolioValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · {dayGain >= 0 ? '+' : ''}{dayGainPercent.toFixed(2)}% today
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: dayGain > 0 ? 'var(--color-success-0.1)' : dayGain < 0 ? 'var(--color-error-0.1)' : 'var(--color-white-0.05)',
+                    border: `1px solid ${dayGain > 0 ? 'var(--color-success-0.2)' : dayGain < 0 ? 'var(--color-error-0.2)' : 'var(--color-white-0.1)'}`,
+                    borderRadius: '6px',
+                    padding: '4px 10px'
+                  }}>
+                    {dayGain > 0 ? (
+                      <ArrowUpRight size={13} color="var(--color-success)" />
+                    ) : dayGain < 0 ? (
+                      <ArrowDownRight size={13} color="var(--color-error)" />
+                    ) : null}
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: dayGain > 0 ? 'var(--color-success)' : dayGain < 0 ? 'var(--color-error)' : 'var(--color-text-muted)', fontWeight: 500 }}>
+                      ₹{portfolioValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · {dayGain > 0 ? '+' : ''}{dayGainPercent.toFixed(2)}% today
                     </span>
                   </div>
                 </div>
@@ -702,7 +835,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ flex: 1, minHeight: '400px' }}>
-                    <WatchlistPanel />
+                    <WatchlistPanel onSelectStock={handleSelectStock} />
                   </div>
                   <div style={{ background: 'var(--color-bg-panel-0.6)', border: '1px solid var(--color-white-0.07)', borderRadius: '14px', padding: '18px 20px' }}>
                     <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '14px' }}>
@@ -744,6 +877,9 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
           )}
         </div>
       </div>
+      
+      {/* Deposit Modal */}
+      <DepositModal isOpen={depositModalOpen} onClose={() => setDepositModalOpen(false)} />
     </div>
   );
 }

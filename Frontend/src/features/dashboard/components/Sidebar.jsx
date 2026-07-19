@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, TrendingUp, PieChart, BarChart3, Star,
-  ClipboardList, BookOpen, Settings, LogOut, ShieldCheck } from
+  ClipboardList, BookOpen, Settings, LogOut, ShieldCheck, Activity, MessageSquare } from
 'lucide-react';
 
 const navItems = [
@@ -11,15 +11,16 @@ const navItems = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'watchlist', label: 'Watchlist', icon: Star },
   { id: 'orders', label: 'Orders', icon: ClipboardList },
-  { id: 'research', label: 'Research', icon: BookOpen }
+  { id: 'research', label: 'Research', icon: BookOpen },
+  { id: 'chat', label: 'AI Assistant', icon: MessageSquare }
 ];
 
-export function Sidebar({ activeTab, onTabChange, onNavigate }) {
+export function Sidebar({ activeTab, onTabChange, onNavigate, onAddFunds }) {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('capitalup-user') || '{}'));
   const [kycStatus, setKycStatus] = useState(() => localStorage.getItem('capitalup-kyc-status') || 'NOT_STARTED');
   
   const [cashBalance, setCashBalance] = useState(() => {
-    return Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+    return Number(localStorage.getItem('capitalup-cash-balance') || 15000);
   });
   const [portfolioValue, setPortfolioValue] = useState(0);
   const [dayGain, setDayGain] = useState(0);
@@ -41,7 +42,8 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
         });
         const result = await res.json();
         if (res.ok) {
-          const cash = Number(localStorage.getItem('capitalup-cash-balance') || 10000);
+          const cash = Number(result.data?.summary?.balance ?? 15000);
+          setCashBalance(cash);
           const holdingsVal = Number(result.data?.summary?.current_value || 0);
           const totalVal = cash + holdingsVal;
           setPortfolioValue(totalVal);
@@ -59,7 +61,6 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
     fetchPortfolio();
 
     const handleBalanceChanged = () => {
-      setCashBalance(Number(localStorage.getItem('capitalup-cash-balance') || 10000));
       fetchPortfolio();
     };
 
@@ -81,6 +82,9 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
 
   const fullName = user.full_name || 'James Dornan';
   const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'JD';
+  const visibleNavItems = user.role === 'ADMIN'
+    ? [...navItems, { id: 'operations', label: 'Operations', icon: Activity }]
+    : navItems;
 
   const getKycBadgeStyle = () => {
     if (kycStatus === 'APPROVED') {
@@ -202,8 +206,36 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
           <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '4px' }}>
             Available Cash
           </div>
-          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-main)' }}>
-            ₹{cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-main)' }}>
+              ₹{cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+            <button
+              onClick={onAddFunds}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '10px',
+                fontWeight: 600,
+                color: 'var(--color-text-inverted)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                fontFamily: 'DM Sans, sans-serif',
+                boxShadow: '0 2px 6px var(--color-accent-0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+                e.currentTarget.style.transform = 'translateY(-0.5px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.transform = 'none';
+              }}
+            >
+              + Deposit
+            </button>
           </div>
         </div>
       </div>
@@ -213,7 +245,7 @@ export function Sidebar({ activeTab, onTabChange, onNavigate }) {
         <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 10px', marginBottom: '4px' }}>
           Main Menu
         </div>
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button

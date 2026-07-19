@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, Plus } from 'lucide-react';
+import { listenToMarketUpdates } from '../../../services/marketRealtime';
 
 const sectorColors = {
   Technology: 'var(--color-accent)',
@@ -62,9 +63,27 @@ export function PositionsTable({ stocks, onSelectStock }) {
 
   useEffect(() => {
     fetchHoldings();
+
+    const stopRealtime = listenToMarketUpdates(({ symbol, stockData }) => {
+      setPositions((prevPositions) => prevPositions.map((position) => {
+        if (position.ticker !== symbol) return position;
+        const price = Number(stockData.price);
+        const shares = Number(position.shares || 0);
+        const avgCost = Number(position.avgCost || 0);
+        return {
+          ...position,
+          current: price,
+          value: price * shares,
+          pnl: (price - avgCost) * shares,
+          pnlPct: avgCost > 0 ? ((price - avgCost) / avgCost) * 100 : 0,
+        };
+      }));
+    });
+
     window.addEventListener('holdingsChanged', fetchHoldings);
     return () => {
       window.removeEventListener('holdingsChanged', fetchHoldings);
+      stopRealtime();
     };
   }, [token, API_BASE_URL]);
 

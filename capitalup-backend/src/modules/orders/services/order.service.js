@@ -3,6 +3,9 @@ const {redisClient} = require(
   "../../../config/redis"
 );
 
+const producer = require("../../../kafka/producer.js");
+const topics = require("../../../kafka/topics.js");
+
 const {createNotification} = require(
   "../../notification/services/notification.service"
 );
@@ -105,11 +108,12 @@ async function placeOrder({
         price,
       }, client);
 
-      await createNotification({
+      await producer.publish(topics.NOTIFICATION, {
+        event: "TRADE_EXECUTED",
         userId,
         title: "Order Executed",
         message: `Your order to buy ${quantity} shares of ${symbol} at ₹${price} has been executed.`,
-      }, client);
+      });
     }
 
     if (side === "SELL") {

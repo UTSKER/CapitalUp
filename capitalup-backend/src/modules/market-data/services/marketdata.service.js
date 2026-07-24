@@ -64,7 +64,7 @@ async function refreshMarketData(force = false) {
     return;
   }
 
-  console.log(`Refreshing ${symbols.length} symbols`);
+  // console.log(`Refreshing ${symbols.length} symbols`);
 
   for (const symbol of symbols) {
     try {
@@ -130,9 +130,9 @@ async function refreshMarketData(force = false) {
         stockData.price
       );
 
-      console.log(
-        `Updated ${symbol}; executed ${trades.length} limit orders, ${stopTrades.length} stop orders`
-      );
+     // console.log(
+     //   `Updated ${symbol}; executed ${trades.length} limit orders, ${stopTrades.length} stop orders`
+     // );
     } catch (error) {
       console.error(
         `Failed to update ${symbol}`,

@@ -28,13 +28,18 @@ const {
   initializeSocket,
 } = require("../src/websockets/socket.js");
 
+/* ===========================
+   Kafka Imports
+=========================== */
+const { producer, initializeKafka } = require("./kafka");
+const startNotificationConsumer = require("./modules/notification/services/notification.consumer");
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer(app);
 
 async function startServer() {
   try {
-    // Initialize Redis connections (uses resilient local in-memory fallback if real connection fails)
+    // Initialize Redis connections
     await redisClient.connect();
     await publisher.connect();
     await subscriber.connect();
@@ -49,27 +54,28 @@ async function startServer() {
     }
 
     await pool.query("SELECT NOW()");
-
     console.log("DB Connected");
 
     // =========================================================================
-    // STARTUP DATABASE CLEANUP / RESET STEP (Commented out to persist user data)
+    // STARTUP DATABASE CLEANUP / RESET STEP
     // =========================================================================
     // console.warn("⚠️  Resetting all balances to 15,000 and removing all order/holding/ledger data...");
     // try {
     //   await pool.query(`
-    //     TRUNCATE TABLE 
+    //     TRUNCATE TABLE
     //       "stop_orders", "limit_orders", "orders", "portfolio_holdings",
     //       "ledger_entries", "ledger_transactions", "refunds", "deposits",
-    //       "withdrawals", "payment_orders", "wallets" 
+    //       "withdrawals", "payment_orders", "wallets"
     //     CASCADE;
     //   `);
+    //
     //   await pool.query(`
     //     UPDATE "users" SET "balance" = 15000.00;
     //   `);
-    //   console.log("✔ Database cleared successfully: All users have 15,000 balance and 0 shares.");
+    //
+    //   console.log("✔ Database cleared successfully.");
     // } catch (cleanErr) {
-    //   console.error("❌ Database cleanup failed during startup:", cleanErr.message);
+    //   console.error(cleanErr.message);
     // }
 
     try {
@@ -88,21 +94,12 @@ async function startServer() {
 
       await pool.query(migrationSql);
 
-      console.log(
-        "Profiles migration check: profiles table is ready"
-      );
+      console.log("Profiles migration check: profiles table is ready");
     } catch (migrationErr) {
-      if (
-        migrationErr.message.includes("already exists")
-      ) {
-        console.log(
-          "Profiles migration check: profiles table already exists"
-        );
+      if (migrationErr.message.includes("already exists")) {
+        console.log("Profiles migration check: profiles table already exists");
       } else {
-        console.error(
-          "Profiles migration warning:",
-          migrationErr.message
-        );
+        console.error("Profiles migration warning:", migrationErr.message);
       }
     }
 
@@ -125,14 +122,25 @@ async function startServer() {
 
     try {
       await pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 15000.00
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2)
+        NOT NULL DEFAULT 15000.00
       `);
+
       await pool.query(`
-        ALTER TABLE users ALTER COLUMN balance SET DEFAULT 15000.00
+        ALTER TABLE users
+        ALTER COLUMN balance
+        SET DEFAULT 15000.00
       `);
-      console.log("DB update check: balance column in users table is ready and default is set to 15,000");
+
+      console.log(
+        "DB update check: balance column in users table is ready"
+      );
     } catch (err) {
-      console.error("Failed to add/alter balance column in users table:", err.message);
+      console.error(
+        "Failed to add/alter balance column:",
+        err.message
+      );
     }
 
     const restoredLimitOrders =
@@ -150,13 +158,27 @@ async function startServer() {
     );
 
     initializeSocket(server);
+
     const startSubscriber = require("../src/websockets/subscriber.js");
 
     await startSubscriber();
 
-    // To enable live market data updates, uncomment the lines below:
+    /* =====================================
+            Kafka Initialization
+    ===================================== */
+
+    await producer.connectProducer();
+
+    await initializeKafka();
+
+    await startNotificationConsumer();
+
+    /* =====================================
+            Background Jobs
+    ===================================== */
     startMarketDataJob();
     console.log("Market Data Feed Job Started");
+
     startDayOrderExpiryJob();
 
     console.log("Market Data Jobs Initialized");

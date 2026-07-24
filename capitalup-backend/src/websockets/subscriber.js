@@ -5,14 +5,14 @@ async function startSubscriber() {
   console.log("Starting Redis subscriber...");
 
   await subscriber.subscribe("market:update", (message) => {
-    console.log("Received from Redis:", message);
+    // console.log("Received from Redis:", message);
 
     const data = JSON.parse(message);
 
     const io = getIO();
 
     if (!io) {
-      console.log("Socket.IO not initialized");
+      // console.log("Socket.IO not initialized");
       return;
     }
 

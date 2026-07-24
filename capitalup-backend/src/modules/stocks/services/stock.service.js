@@ -43,7 +43,7 @@ async function getStockPrice(symbol) {
       );
     }
 
-    console.log(`[Yahoo Finance API Fetch] Symbol: ${symbol} | Price: ₹${quote.regularMarketPrice} | PrevClose: ₹${quote.regularMarketPreviousClose}`);
+   // console.log(`[Yahoo Finance API Fetch] Symbol: ${symbol} | Price: ₹${quote.regularMarketPrice} | PrevClose: ₹${quote.regularMarketPreviousClose}`);
 
     return {
       symbol,
@@ -140,7 +140,7 @@ async function getStockHistoryService(symbol) {
         }));
 
         if (realPoints.length > 0) {
-          console.log(`[Yahoo Finance Chart Fetch] Successfully loaded ${realPoints.length} real points for ${symbol} on date ${latestDate}`);
+       //   console.log(`[Yahoo Finance Chart Fetch] Successfully loaded ${realPoints.length} real points for ${symbol} on date ${latestDate}`);
           return realPoints;
         }
       }

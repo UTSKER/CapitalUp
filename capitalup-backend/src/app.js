@@ -120,5 +120,9 @@ const aiRoutes =require("../src/modules/ai/index.js");
 
 app.use("/api/ai", aiRoutes);
 
+const testKafkaRoute = require("./modules/notification/routes/testKafka.route");
+
+app.use("/api/v1/kafka", testKafkaRoute);
+
 
 module.exports = app;

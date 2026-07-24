@@ -37,6 +37,7 @@
     "express": "^5.2.1",
     "google-auth-library": "^10.7.0",
     "jsonwebtoken": "^9.0.3",
+    "kafkajs": "^2.2.4",
     "langchain": "^1.5.3",
     "multer": "^2.1.1",
     "multer-storage-cloudinary": "^4.0.0",

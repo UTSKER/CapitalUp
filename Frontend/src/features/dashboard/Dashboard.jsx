@@ -72,7 +72,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
     const now = new Date();
     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
     const istTime = new Date(utc + (3600000 * 5.5));
-    
+
     const day = istTime.getDay();
     const hours = istTime.getHours();
     const minutes = istTime.getMinutes();
@@ -212,10 +212,10 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
     const path = tab === 'personal-information'
       ? `/user/${userId}/personal-information`
       : tab === 'profile' || tab === 'settings'
-      ? `/user/${userId}`
-      : tab === 'markets'
-      ? '/dashboard'
-      : `/dashboard/${tab}`;
+        ? `/user/${userId}`
+        : tab === 'markets'
+          ? '/dashboard'
+          : `/dashboard/${tab}`;
 
     if (window.location.pathname !== path) {
       window.history.pushState({}, '', path);
@@ -247,7 +247,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
         fontFamily: 'DM Sans, system-ui, sans-serif',
         color: 'var(--color-text-main)'
       }}>
-      
+
       {/* Sidebar */}
       <Sidebar activeTab={activeTab} onTabChange={changeTab} onNavigate={onNavigate} onAddFunds={() => setDepositModalOpen(true)} />
 
@@ -269,7 +269,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
             justifyContent: 'space-between',
             gap: '16px'
           }}>
-          
+
           {/* Search */}
           <div
             style={{
@@ -286,7 +286,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               boxShadow: searchOpen ? '0 0 0 3px var(--color-accent-0.1)' : 'none'
             }}
             onClick={() => setSearchOpen(true)}>
-            
+
             <Search size={13} color={searchOpen ? 'var(--color-accent)' : 'var(--color-text-muted)'} />
             <input
               type="text"
@@ -304,7 +304,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                 fontFamily: 'DM Sans, sans-serif',
                 flex: 1
               }} />
-            
+
             <span style={{ fontSize: '10px', color: 'var(--color-text-dim)', background: 'var(--color-white-0.06)', padding: '2px 6px', borderRadius: '4px' }}>⌘K</span>
           </div>
 
@@ -321,7 +321,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                 borderRadius: '100px',
                 padding: '5px 12px'
               }}>
-              
+
               <div style={{
                 width: '6px',
                 height: '6px',
@@ -352,7 +352,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.08)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-white-0.05)'; }}>
-              
+
               <Bell size={15} color="var(--color-text-sub)" />
               {notifications > 0 &&
                 <span
@@ -394,7 +394,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-white-0.07)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-white-0.04)'; }}>
-                
+
                 <div
                   style={{
                     width: '26px',
@@ -416,11 +416,11 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               {avatarMenuOpen && (
                 <>
                   {/* Click outside overlay */}
-                  <div 
+                  <div
                     onClick={() => setAvatarMenuOpen(false)}
                     style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'transparent' }}
                   />
-                  
+
                   {/* Floating Menu */}
                   <div
                     style={{
@@ -555,8 +555,8 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}>
-              <MarketsView 
-                onNavigate={onNavigate} 
+              <MarketsView
+                onNavigate={onNavigate}
                 stocks={stocks}
                 selectedStock={selectedStock}
                 setSelectedStock={setSelectedStock}
@@ -877,7 +877,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
           )}
         </div>
       </div>
-      
+
       {/* Deposit Modal */}
       <DepositModal isOpen={depositModalOpen} onClose={() => setDepositModalOpen(false)} />
     </div>

@@ -34,6 +34,9 @@ const {
   "../../portfolio/services/portfolio.service"
 );
 
+const producer = require("../../../kafka/producer.js");
+const topics = require("../../../kafka/topics.js");
+
 const {
   createNotification,
 } = require(
@@ -261,13 +264,14 @@ async function placeLimitOrder(
       },
     });
 
-    await createNotification({
+    await producer.publish(topics.NOTIFICATION, {
+      event: "LIMIT_ORDER_PLACED",
       userId,
       title:
         "Limit Order Placed",
       message:
         `Your ${side} limit order for ${symbol} has been placed. Quantity: ${quantity}. Limit Price: ₹${limitPrice}.`,
-    }, client);
+    });
 
     await client.query("COMMIT");
 

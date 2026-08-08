@@ -146,6 +146,70 @@
   /* Inherits root values */
 }
 
+/* Theme Dark (primary dark theme, same as root defaults) */
+.theme-dark {
+  --background: #111315;
+  --foreground: #F7F8FA;
+  --card: #1D2126;
+  --card-foreground: #F7F8FA;
+  --popover: #1D2126;
+  --popover-foreground: #F7F8FA;
+  --primary: #4F8CFF;
+  --primary-foreground: #F7F8FA;
+  --secondary: #171A1D;
+  --secondary-foreground: #B2BAC5;
+  --muted: #252A31;
+  --muted-foreground: #7A828E;
+  --accent: #252A31;
+  --accent-foreground: #4F8CFF;
+  --destructive: #E25D5D;
+  --destructive-foreground: #F7F8FA;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.06);
+  --input-background: rgba(255, 255, 255, 0.05);
+  --switch-background: #2D3540;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #4F8CFF;
+  --chart-1: #4F8CFF;
+  --chart-2: #18C37E;
+  --chart-3: #F5B942;
+  --chart-4: #E25D5D;
+  --chart-5: #A78BFA;
+  --radius: 0.5rem;
+  --sidebar: #171A1D;
+  --sidebar-foreground: #F7F8FA;
+  --sidebar-primary: #4F8CFF;
+  --sidebar-primary-foreground: #F7F8FA;
+  --sidebar-accent: #252A31;
+  --sidebar-accent-foreground: #F7F8FA;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #4F8CFF;
+
+  --color-bg-base: #111315;
+  --color-bg-dark: #0E1013;
+  --color-bg-card: #1C2126;
+  --color-text-main: #F7F8FA;
+  --color-text-inverted: #ffffff;
+  --color-text-muted: #7A828E;
+  --color-text-sub: #B2BAC5;
+  --color-text-dim: #4A5260;
+  --color-accent: #4F8CFF;
+  --color-accent-dark: #2860E8;
+  --color-success: #18C37E;
+  --color-error: #E25D5D;
+  --color-warning: #F5B942;
+
+  --color-white-rgb: 255, 255, 255;
+  --color-black-rgb: 0, 0, 0;
+  --color-bg-panel-rgb: 28, 33, 38;
+  --color-bg-nav-rgb: 17, 19, 21;
+  --color-accent-rgb: 79, 140, 255;
+  --color-success-rgb: 24, 195, 126;
+  --color-error-rgb: 226, 93, 93;
+  --color-warning-rgb: 245, 185, 66;
+}
+
 .theme-light {
   --background: #EAECEE;
   --foreground: #1A1D20;

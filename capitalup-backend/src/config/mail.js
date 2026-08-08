@@ -1,18 +1,52 @@
 require("dotenv").config({ override: true });
 
-const nodemailer = require("nodemailer");
+async function sendBrevoEmail({ from, to, subject, text, html }) {
+  if (!process.env.BREVO_API_KEY) {
+    console.warn("BREVO_API_KEY is not configured. Skipping email delivery.");
+    return { skipped: true };
+  }
 
-const mailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: process.env.SMTP_SECURE === "true",
-  auth:
-    process.env.SMTP_USER && process.env.SMTP_PASSWORD
-      ? {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD,
-        }
-      : undefined,
-});
+  const payload = {
+    sender: {
+      name: from.name || "CapitalUp",
+      email: from.email || process.env.SMTP_FROM || "noreply@capitalup.com",
+    },
+    to: [
+      {
+        email: to,
+      },
+    ],
+    subject: subject,
+    htmlContent: html,
+    textContent: text,
+  };
 
-module.exports = mailTransporter;
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": process.env.BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Brevo Email Error:", data);
+      throw new Error(`Failed to send email: ${data.message || response.statusText}`);
+    }
+
+    console.log("Email sent successfully via Brevo API", data);
+    return data;
+  } catch (error) {
+    console.error("Email Delivery Failed:", error);
+    throw error;
+  }
+}
+
+module.exports = {
+  sendBrevoEmail,
+};

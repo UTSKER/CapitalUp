@@ -1,4 +1,4 @@
-const mailTransporter = require("../../config/mail");
+const { sendBrevoEmail } = require("../../config/mail");
 
 const fromAddress =
   process.env.SMTP_FROM || "CapitalUp <noreply@capitalup.com>";
@@ -84,15 +84,15 @@ function getSuccessEmailTemplate(userName) {
 }
 
 async function sendMail({ to, subject, text, html }) {
-  if (!process.env.SMTP_HOST) {
+  if (!process.env.BREVO_API_KEY && !process.env.SMTP_HOST) {
     console.warn(
-      "SMTP_HOST is not configured. Skipping email delivery."
+      "BREVO_API_KEY is not configured. Skipping email delivery."
     );
     return { skipped: true };
   }
 
-  return mailTransporter.sendMail({
-    from: fromAddress,
+  return sendBrevoEmail({
+    from: { name: "CapitalUp", email: fromAddress },
     to,
     subject,
     text,

@@ -124,5 +124,10 @@ const testKafkaRoute = require("./modules/notification/routes/testKafka.route");
 
 app.use("/api/v1/kafka", testKafkaRoute);
 
+// Health Check Route (For Serverless Keep-Alive)
+const healthRoutes = require("./routes/health.routes");
+app.use("/api/health", healthRoutes);
+
+
 
 module.exports = app;

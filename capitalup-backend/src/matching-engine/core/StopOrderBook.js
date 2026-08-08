@@ -65,6 +65,7 @@ class StopOrderBook {
 
         const trades = [];
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
 
             const lowestBuyStopLevel = this.lowestBuyStop();
@@ -91,6 +92,7 @@ class StopOrderBook {
 
         const trades = [];
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
 
             const highestSellStopLevel = this.highestSellStop();

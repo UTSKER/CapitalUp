@@ -32,7 +32,7 @@ const registerSchema = z.object({
     )
     .refine(
       (val) =>
-        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(val),
+        /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(val),
       {
         message:
           "Password must contain at least one special character",
@@ -138,7 +138,7 @@ const changePasswordSchema = z.object({
     )
     .refine(
       (val) =>
-        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(val),
+        /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(val),
       {
         message:
           "Password must contain at least one special character",
@@ -176,7 +176,7 @@ const resetPasswordSchema = z.object({
     )
     .refine(
       (val) =>
-        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(val),
+        /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(val),
       {
         message:
           "Password must contain at least one special character",

@@ -54,6 +54,7 @@ class OrderBook {
 
         const trades = [];
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
 
             const bestBuyLevel = this.bestBid();
@@ -80,6 +81,7 @@ class OrderBook {
 
         const trades = [];
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
 
             const bestSellLevel = this.bestAsk();

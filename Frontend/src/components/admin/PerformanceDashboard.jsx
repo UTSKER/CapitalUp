@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   AreaChart, Area
 } from 'recharts';
-import { Activity, Server, Zap, Database, Globe, AlertTriangle } from 'lucide-react';
+import { Zap, Database, Globe, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 

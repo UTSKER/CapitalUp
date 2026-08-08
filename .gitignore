@@ -83,3 +83,6 @@ scratch/
 *.gz
 *.rar
 *.7z
+
+# AI Agent & Learning Files
+.agents/

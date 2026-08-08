@@ -1,4 +1,4 @@
-CREATE TABLE stocks (
+CREATE TABLE IF NOT EXISTS stocks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     symbol VARCHAR(50) UNIQUE NOT NULL,

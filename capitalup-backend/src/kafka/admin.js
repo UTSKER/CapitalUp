@@ -12,7 +12,7 @@ async function initializeKafka() {
             topics: [
                 {
                     topic: "notification-events",
-                    numPartitions: 3,
+                    numPartitions: 2,
                     replicationFactor: 1,
                 },
             ],

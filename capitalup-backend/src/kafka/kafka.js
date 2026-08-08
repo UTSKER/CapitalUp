@@ -5,7 +5,9 @@ const kafka = new Kafka({
     brokers: process.env.KAFKA_BROKERS.split(","),
     connectionTimeout: 10000,
     authenticationTimeout: 10000,
-    ssl: true,
+    ssl: process.env.KAFKA_CA_CERT ? {
+        ca: [process.env.KAFKA_CA_CERT],
+    } : true,
     sasl: {
         mechanism: "scram-sha-256",
         username: process.env.KAFKA_SASL_USERNAME,

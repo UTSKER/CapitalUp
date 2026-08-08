@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy source code and build
 COPY . .
@@ -20,9 +20,10 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy the built dist folder from the previous stage
+# Copy pre-built dist folder to nginx html dir
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

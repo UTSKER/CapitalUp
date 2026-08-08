@@ -43,6 +43,42 @@ jobs:
         working-directory: ./Frontend
         run: npm run lint
 
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: 'capitalup-backend/package-lock.json'
+      - name: Install Dependencies
+        working-directory: ./capitalup-backend
+        run: npm ci || npm install
+      - name: Run Tests
+        working-directory: ./capitalup-backend
+        run: npm test
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: 'Frontend/package-lock.json'
+      - name: Install Dependencies
+        working-directory: ./Frontend
+        run: npm ci || npm install
+      - name: Run Tests
+        working-directory: ./Frontend
+        run: npm test
+
   build-frontend:
     name: Build Frontend (Verify Compilation)
     runs-on: ubuntu-latest

@@ -693,6 +693,14 @@ function CTASection({ onNavigate }) {
 }
 
 /* ─── BOTTOM TICKER ────────────────────────────────────────────────── */
+const TICKER_ITEMS = [
+  { label: 'NIFTY 50', value: '24,300.50', change: '0.45%', up: true },
+  { label: 'SENSEX', value: '80,100.20', change: '0.35%', up: true },
+  { label: 'BANKNIFTY', value: '52,400.10', change: '0.65%', up: true },
+  { label: 'RELIANCE', value: '3,120.40', change: '1.20%', up: true },
+  { label: 'HDFCBANK', value: '1,650.00', change: '0.85%', up: false }
+];
+
 function BottomTicker({ isVisible, onToggle }) {
   const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
   return (

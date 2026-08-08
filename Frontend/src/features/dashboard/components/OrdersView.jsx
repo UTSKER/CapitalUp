@@ -38,7 +38,9 @@ export function OrdersView() {
                 activeToken = refreshResult.accessToken;
                 res = await fetch(url, { headers: { Authorization: `Bearer ${activeToken}` } });
               }
-            } catch (e) {}
+            } catch (e) {
+              console.warn('Failed to refresh token', e);
+            }
           }
         }
         return res.json();

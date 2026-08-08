@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Landing } from './features/landing/Landing';
 import { AuthScreen } from './features/auth/AuthScreen';
 import { Dashboard } from './features/dashboard/Dashboard';
+import { AdminLayout } from './components/admin/AdminLayout';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import socket from "./services/socket.js";
 import { initializeMarketSocketListener } from "./services/marketRealtime.js";
@@ -11,13 +12,15 @@ const viewRoutes = {
   login: '/login',
   register: '/register',
   forgot: '/forgot',
-  dashboard: '/dashboard'
+  dashboard: '/dashboard',
+  admin: '/admin'
 };
 
 function getViewFromPath(pathname) {
   if (pathname === '/login') return 'login';
   if (pathname === '/register') return 'register';
   if (pathname === '/forgot') return 'forgot';
+  if (pathname.startsWith('/admin')) return 'admin';
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/user/')) return 'dashboard';
   return 'landing';
 }
@@ -134,6 +137,9 @@ export default function App() {
         )}
         {view === 'dashboard' && (
           <Dashboard onNavigate={navigate} currentTheme={theme} onChangeTheme={changeTheme} />
+        )}
+        {view === 'admin' && (
+          <AdminLayout onNavigate={navigate} />
         )}
 
         {/* 3D Page Turn Theme Switch Animation Overlay */}

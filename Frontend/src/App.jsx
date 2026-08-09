@@ -52,7 +52,9 @@ export default function App() {
     return routeView === 'dashboard' ? 'login' : routeView;
   });
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('capitalup-theme') || 'dark';
+    let saved = localStorage.getItem('capitalup-theme');
+    if (!saved || saved === 'dark') return 'default';
+    return saved;
   });
   const [isAnimatingTheme, setIsAnimatingTheme] = useState(false);
   const [oldTheme, setOldTheme] = useState('default');

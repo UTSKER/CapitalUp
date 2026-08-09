@@ -1147,7 +1147,7 @@ export function Landing({ onNavigate }) {
 
     const fetchNiftyHistory = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/stocks/^NSEI/history`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/stocks/${encodeURIComponent('^NSEI')}/history`);
         const result = await res.json();
         if (result.success && Array.isArray(result.data) && result.data.length > 0) {
           const chartData = result.data.map((pt, idx) => ({ i: idx, v: Number(pt.price) }));

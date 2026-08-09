@@ -229,7 +229,9 @@ async function getStockHistoryService(symbol) {
           for (let i = 0; i < symbol.length; i++) {
             hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
           }
-          basePrice = 100 + (Math.abs(hash) % 900);
+          if (symbol === '^NSEI') basePrice = 24300;
+          else if (symbol === '^BSESN') basePrice = 79900;
+          else basePrice = 100 + (Math.abs(hash) % 900);
         }
       }
     } catch (err) {
@@ -238,7 +240,9 @@ async function getStockHistoryService(symbol) {
       for (let i = 0; i < symbol.length; i++) {
         hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
       }
-      basePrice = 100 + (Math.abs(hash) % 900);
+      if (symbol === '^NSEI') basePrice = 24300;
+      else if (symbol === '^BSESN') basePrice = 79900;
+      else basePrice = 100 + (Math.abs(hash) % 900);
     }
 
     // 4. Generate points at 10-minute intervals

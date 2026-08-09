@@ -59,7 +59,7 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('theme-default', 'theme-light', 'theme-hacker');
+    root.classList.remove('theme-default', 'theme-light', 'theme-hacker', 'theme-dark');
     root.classList.add(`theme-${theme}`);
   }, [theme]);
 

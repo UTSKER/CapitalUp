@@ -141,13 +141,8 @@
   --color-error-0.7: rgba(var(--color-error-rgb), 0.7);
 }
 
-/* Theme Default (Fallback Dark) */
-.theme-default {
-  /* Inherits root values */
-}
-
-/* Theme Dark (primary dark theme, same as root defaults) */
-.theme-dark {
+/* Theme Default and Dark (primary dark theme) */
+.theme-default, .theme-dark {
   --background: #111315;
   --foreground: #F7F8FA;
   --card: #1D2126;

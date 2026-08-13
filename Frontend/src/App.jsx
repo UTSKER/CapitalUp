@@ -31,6 +31,13 @@ function hasActiveSession() {
   return Boolean(token && expiry && Date.now() < Number(expiry));
 }
 
+function isAdmin() {
+  try {
+    const user = JSON.parse(localStorage.getItem('capitalup-user') || '{}');
+    return user.role === 'ADMIN';
+  } catch { return false; }
+}
+
 function clearSession() {
   localStorage.removeItem('capitalup-access-token');
   localStorage.removeItem('capitalup-refresh-token');
@@ -43,13 +50,18 @@ export default function App() {
   const [view, setView] = useState(() => {
     const routeView = getViewFromPath(window.location.pathname);
     if (hasActiveSession()) {
+      // Block non-admin users from /admin
+      if (routeView === 'admin' && !isAdmin()) {
+        window.history.replaceState({}, '', '/dashboard');
+        return 'dashboard';
+      }
       return routeView;
     }
     clearSession();
-    if (routeView === 'dashboard') {
+    if (routeView === 'dashboard' || routeView === 'admin') {
       window.history.replaceState({}, '', '/login');
     }
-    return routeView === 'dashboard' ? 'login' : routeView;
+    return (routeView === 'dashboard' || routeView === 'admin') ? 'login' : routeView;
   });
   const [theme, setTheme] = useState(() => {
     let saved = localStorage.getItem('capitalup-theme');
@@ -67,20 +79,35 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      const routeView = getViewFromPath(window.location.pathname);
       if (!hasActiveSession()) {
         clearSession();
-        const routeView = getViewFromPath(window.location.pathname);
-        if (routeView === 'dashboard') {
+        if (routeView === 'dashboard' || routeView === 'admin') {
           window.history.replaceState({}, '', '/login');
+          setView('login');
+        } else {
+          setView(routeView);
         }
-        setView(routeView === 'dashboard' ? 'login' : routeView);
         return;
       }
-      setView(getViewFromPath(window.location.pathname));
+      // Block non-admin from /admin
+      if (routeView === 'admin' && !isAdmin()) {
+        window.history.replaceState({}, '', '/dashboard');
+        setView('dashboard');
+        return;
+      }
+      // Logged-in user going to landing → send to dashboard
+      if (routeView === 'landing') {
+        window.history.replaceState({}, '', '/dashboard');
+        setView('dashboard');
+        return;
+      }
+      setView(routeView);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
 
   useEffect(() => {
     const unsubscribeRealtime = initializeMarketSocketListener();
@@ -113,11 +140,26 @@ export default function App() {
 
   const navigate = (v, options = {}) => {
     const nextPath = options.path || viewRoutes[v] || '/';
-    const nextView = getViewFromPath(nextPath);
+    let nextView = getViewFromPath(nextPath);
 
-    if (!hasActiveSession() && nextView === 'dashboard') {
+    // If not logged in, block dashboard and admin
+    if (!hasActiveSession() && (nextView === 'dashboard' || nextView === 'admin')) {
       window.history.pushState({}, '', '/login');
       setView('login');
+      return;
+    }
+
+    // Block non-admin users from /admin
+    if (nextView === 'admin' && !isAdmin()) {
+      window.history.pushState({}, '', '/dashboard');
+      setView('dashboard');
+      return;
+    }
+
+    // If user is logged in and navigates to landing, send to dashboard instead
+    if (nextView === 'landing' && hasActiveSession()) {
+      window.history.pushState({}, '', '/dashboard');
+      setView('dashboard');
       return;
     }
 

@@ -1,83 +1,13 @@
-import { useState } from 'react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from
-'recharts';
-import { ArrowUpRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
 
-const timeframes = ['1D', '1W', '1M', '3M', 'YTD', '1Y', 'All'];
+const timeframes = ['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL'];
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-const generateData = (points, start, end, volatility) =>
-  Array.from({ length: points }, (_, i) => {
-    const trend = start + (end - start) * (i / (points - 1));
-    const noise =
-      Math.sin(i * 1.2) * volatility +
-      Math.cos(i * 0.7) * volatility * 0.6 +
-      Math.sin(i * 2.1) * volatility * 0.3;
-    return { i, value: Math.round(trend + noise) };
-  });
-
-const frameData = {
-  '1D': {
-    data: generateData(48, 2822553, 2847392, 8000),
-    labels: Array.from({ length: 48 }, (_, i) => `${Math.floor(i / 2)}:${i % 2 === 0 ? '00' : '30'}`),
-    start: '2,822,553',
-    change: '+24,839',
-    pct: '+0.88%',
-    positive: true
-  },
-  '1W': {
-    data: generateData(35, 2780000, 2847392, 20000),
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    start: '2,780,000',
-    change: '+67,392',
-    pct: '+2.42%',
-    positive: true
-  },
-  '1M': {
-    data: generateData(30, 2690000, 2847392, 35000),
-    labels: Array.from({ length: 30 }, (_, i) => `May ${i + 3}`),
-    start: '2,690,000',
-    change: '+157,392',
-    pct: '+5.85%',
-    positive: true
-  },
-  '3M': {
-    data: generateData(60, 2450000, 2847392, 55000),
-    labels: ['Mar', 'Apr', 'May', 'Jun'],
-    start: '2,450,000',
-    change: '+397,392',
-    pct: '+16.22%',
-    positive: true
-  },
-  'YTD': {
-    data: generateData(90, 2310000, 2847392, 75000),
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    start: '2,310,000',
-    change: '+537,392',
-    pct: '+23.26%',
-    positive: true
-  },
-  '1Y': {
-    data: generateData(120, 2200000, 2847392, 90000),
-    labels: ['Jun 25', 'Sep 25', 'Dec 25', 'Mar 26', 'Jun 26'],
-    start: '2,200,000',
-    change: '+647,392',
-    pct: '+29.43%',
-    positive: true
-  },
-  'All': {
-    data: generateData(150, 850000, 2847392, 120000),
-    labels: ['2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'],
-    start: '850,000',
-    change: '+1,997,392',
-    pct: '+235.0%',
-    positive: true
-  }
-};
-
-const CustomTooltip = ({ active, payload, coordinate }) => {
+const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
-    const val = payload[0].value;
+    const data = payload[0].payload;
     return (
       <div
         style={{
@@ -86,10 +16,13 @@ const CustomTooltip = ({ active, payload, coordinate }) => {
           borderRadius: '8px',
           padding: '10px 14px',
           boxShadow: '0 8px 24px var(--color-black-0.4)'
-        }}>
-        
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-main)' }}>
-          ${val.toLocaleString()}
+        }}
+      >
+        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '3px' }}>
+          {data.dateStr || data.timestamp}
+        </div>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '15px', fontWeight: 600, color: 'var(--color-text-main)' }}>
+          ₹{Number(data.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
       </div>
     );
@@ -97,9 +30,48 @@ const CustomTooltip = ({ active, payload, coordinate }) => {
   return null;
 };
 
-export function PortfolioChart() {
+export function PortfolioChart({ summary }) {
+  const token = localStorage.getItem('capitalup-access-token');
+
   const [frame, setFrame] = useState('1M');
-  const current = frameData[frame];
+  const [perfData, setPerfData] = useState({
+    currentValue: 0,
+    startValue: 0,
+    change: 0,
+    pctChange: 0,
+    positive: true,
+    points: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  const fetchPerformance = async (selectedFrame) => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE_URL}/portfolio/performance?period=${selectedFrame}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const result = await res.json();
+      if (res.ok && result.data) {
+        setPerfData(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch portfolio performance history:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPerformance(frame);
+  }, [frame, token]);
+
+  const isPos = perfData.positive;
+  const strokeColor = isPos ? 'var(--color-accent)' : 'var(--color-error)';
+  const totalReturn = summary?.portfolio_return || 0;
+  const unrealizedPnl = summary?.total_profit_loss || 0;
+  const realizedPnl = summary?.realized_pnl || 0;
+  const investedVal = summary?.total_invested || 0;
 
   return (
     <div
@@ -108,24 +80,25 @@ export function PortfolioChart() {
         border: '1px solid var(--color-white-0.07)',
         borderRadius: '14px',
         padding: '24px'
-      }}>
-      
+      }}
+    >
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '6px' }}>
-            Portfolio Performance
+            Portfolio Performance Trend
           </div>
           <div
             style={{
               fontFamily: 'JetBrains Mono, monospace',
               fontSize: '28px',
-              fontWeight: 400,
+              fontWeight: 600,
               color: 'var(--color-text-main)',
               letterSpacing: '-0.5px',
               marginBottom: '4px'
-            }}>
-            $2,847,392.50
+            }}
+          >
+            ₹{Number(summary?.total_portfolio_value || perfData.currentValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div
@@ -133,22 +106,24 @@ export function PortfolioChart() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                background: 'var(--color-success-0.1)',
-                border: '1px solid var(--color-success-0.2)',
+                background: isPos ? 'var(--color-success-0.1)' : 'var(--color-error-0.1)',
+                border: `1px solid ${isPos ? 'var(--color-success-0.2)' : 'var(--color-error-0.2)'}`,
                 borderRadius: '6px',
                 padding: '3px 8px'
-              }}>
-              
-              <ArrowUpRight size={12} color="var(--color-success)" />
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--color-success)', fontWeight: 500 }}>
-                +${current.change} ({current.pct})
+              }}
+            >
+              {isPos ? <ArrowUpRight size={12} color="var(--color-success)" /> : <ArrowDownRight size={12} color="var(--color-error)" />}
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: isPos ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 600 }}>
+                {isPos ? '+' : ''}₹{Math.abs(perfData.change).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ({isPos ? '+' : ''}{perfData.pctChange.toFixed(2)}%)
               </span>
             </div>
-            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>vs ${current.start}</span>
+            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+              in selected {frame} period
+            </span>
           </div>
         </div>
 
-        {/* Timeframe tabs */}
+        {/* Timeframe selector tabs */}
         <div
           style={{
             display: 'flex',
@@ -157,9 +132,9 @@ export function PortfolioChart() {
             borderRadius: '8px',
             padding: '3px',
             gap: '2px'
-          }}>
-          
-          {timeframes.map((tf) =>
+          }}
+        >
+          {timeframes.map((tf) => (
             <button
               key={tf}
               onClick={() => setFrame(tf)}
@@ -175,74 +150,98 @@ export function PortfolioChart() {
                 color: tf === frame ? 'var(--color-text-inverted)' : 'var(--color-text-muted)',
                 transition: 'all 0.2s'
               }}
-              onMouseEnter={(e) => {
-                if (tf !== frame) e.currentTarget.style.color = 'var(--color-text-sub)';
-              }}
-              onMouseLeave={(e) => {
-                if (tf !== frame) e.currentTarget.style.color = 'var(--color-text-muted)';
-              }}>
+            >
               {tf}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
       {/* Chart */}
-      <div style={{ height: '220px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={current.data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="perfGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.22} />
-                <stop offset="75%" stopColor="var(--color-accent)" stopOpacity={0.04} />
-                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--color-white-0.04)"
-              vertical={false} />
-            
-            <XAxis
-              dataKey="i"
-              tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
-              axisLine={false}
-              tickLine={false}
-              interval="preserveStartEnd" />
-            
-            <YAxis
-              tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`}
-              width={52} />
-            
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-accent-0.3)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="var(--color-accent)"
-              strokeWidth={2}
-              fill="url(#perfGrad)"
-              dot={false}
-              activeDot={{ r: 4, fill: 'var(--color-accent)', stroke: 'var(--color-accent-0.3)', strokeWidth: 6 }} />
-          </AreaChart>
-        </ResponsiveContainer>
+      <div style={{ height: '240px', position: 'relative' }}>
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-text-muted)', gap: '8px', fontSize: '13px' }}>
+            <RefreshCw size={16} className="animate-spin" color="var(--color-accent)" />
+            Loading performance chart...
+          </div>
+        ) : perfData.points.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-text-muted)', fontSize: '13px' }}>
+            Historical performance isn't available yet.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={perfData.points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="perfGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={strokeColor} stopOpacity={0.25} />
+                  <stop offset="75%" stopColor={strokeColor} stopOpacity={0.04} />
+                  <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="var(--color-white-0.04)"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="dateStr"
+                tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}K`}
+                width={56}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-accent-0.3)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={strokeColor}
+                strokeWidth={2}
+                fill="url(#perfGrad)"
+                dot={false}
+                activeDot={{ r: 5, fill: strokeColor, stroke: 'var(--color-bg-base)', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
-      {/* Bottom metrics row */}
+      {/* Bottom metrics summary row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--color-white-0.05)' }}>
-        {[
-          { label: 'Total Return', value: '+29.43%', color: 'var(--color-success)' },
-          { label: 'Unrealized P&L', value: '+$648K', color: 'var(--color-success)' },
-          { label: 'Realized P&L', value: '+$142K', color: 'var(--color-success)' },
-          { label: 'Sharpe Ratio', value: '1.84', color: 'var(--color-text-main)' }
-        ].map((m) =>
-          <div key={m.label}>
-            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>{m.label}</div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 500, color: m.color }}>{m.value}</div>
+        <div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>Portfolio Return</div>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 600, color: totalReturn >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
+            {totalReturn >= 0 ? '+' : ''}{totalReturn.toFixed(2)}%
           </div>
-        )}
+        </div>
+
+        <div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>Unrealized P&L</div>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 600, color: unrealizedPnl >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
+            {unrealizedPnl >= 0 ? '+' : ''}₹{Math.abs(unrealizedPnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>Realized P&L</div>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 600, color: realizedPnl >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
+            {realizedPnl >= 0 ? '+' : ''}₹{Math.abs(realizedPnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>Total Invested</div>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 600, color: 'var(--color-text-main)' }}>
+            ₹{investedVal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </div>
+        </div>
       </div>
     </div>
   );

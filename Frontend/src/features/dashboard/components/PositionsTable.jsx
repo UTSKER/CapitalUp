@@ -170,8 +170,33 @@ export function PositionsTable({ stocks, onSelectStock }) {
         {loading ? (
           <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '20px', fontSize: '12px' }}>Loading positions...</div>
         ) : positions.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '30px', fontSize: '12px' }}>
-            No holdings found. Click 'Add Position' to start trading.
+          <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '44px 20px', fontSize: '13px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '6px' }}>
+              No positions yet
+            </div>
+            <div style={{ marginBottom: '18px', color: 'var(--color-text-muted)', fontSize: '12px' }}>
+              Start building your portfolio by exploring live stock markets.
+            </div>
+            <button
+              onClick={handleAddPosition}
+              style={{
+                background: 'var(--color-accent)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 18px',
+                color: 'var(--color-text-inverted)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: 'DM Sans, sans-serif'
+              }}
+            >
+              <Plus size={14} />
+              Explore Markets & Trade
+            </button>
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '680px' }}>

@@ -7,6 +7,7 @@ import { PortfolioChart } from './components/PortfolioChart';
 import { AllocationChart } from './components/AllocationChart';
 import { MarketCards } from './components/MarketCards';
 import { PositionsTable } from './components/PositionsTable';
+import { PortfolioDashboard } from './components/PortfolioDashboard';
 import { WatchlistPanel } from './components/WatchlistPanel';
 import { KycVerification } from './components/KycVerification';
 import { PersonalInformation } from './components/PersonalInformation';
@@ -638,37 +639,7 @@ export function Dashboard({ onNavigate, currentTheme, onChangeTheme }) {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}>
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px', fontWeight: 500 }}>
-                  Good morning, {firstName} — {currentDateString}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
-                  <h1 style={{ fontFamily: 'EB Garamond, Georgia, serif', fontSize: '28px', fontWeight: 600, color: 'var(--color-text-main)', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
-                    Portfolio Holdings
-                  </h1>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: dayGain > 0 ? 'var(--color-success-0.1)' : dayGain < 0 ? 'var(--color-error-0.1)' : 'var(--color-white-0.05)',
-                    border: `1px solid ${dayGain > 0 ? 'var(--color-success-0.2)' : dayGain < 0 ? 'var(--color-error-0.2)' : 'var(--color-white-0.1)'}`,
-                    borderRadius: '6px',
-                    padding: '4px 10px'
-                  }}>
-                    {dayGain > 0 ? (
-                      <ArrowUpRight size={13} color="var(--color-success)" />
-                    ) : dayGain < 0 ? (
-                      <ArrowDownRight size={13} color="var(--color-error)" />
-                    ) : null}
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: dayGain > 0 ? 'var(--color-success)' : dayGain < 0 ? 'var(--color-error)' : 'var(--color-text-muted)', fontWeight: 500 }}>
-                      ₹{holdingsValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · {dayGain > 0 ? '+' : ''}{dayGainPercent.toFixed(2)}% today
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <PositionsTable stocks={stocks} onSelectStock={handleSelectStock} />
-              </div>
+              <PortfolioDashboard stocks={stocks} onSelectStock={handleSelectStock} userName={firstName} />
             </motion.div>
           ) : activeTab === 'watchlist' ? (
             <motion.div

@@ -24,3 +24,4 @@ async function connectConsumer(topic, handler) {
 }
 
 module.exports = connectConsumer;
+

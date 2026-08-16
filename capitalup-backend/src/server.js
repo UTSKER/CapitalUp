@@ -173,6 +173,8 @@ async function startServer() {
 
     await startNotificationConsumer();
 
+
+
     /* =====================================
             Background Jobs
     ===================================== */

@@ -6,6 +6,8 @@ const {
   buy,
   sell,
   getUserPortfolio,
+  getPerformance,
+  getTopMovers,
 } = require(
   "../controllers/portfolio.controller"
 );
@@ -26,4 +28,14 @@ router.get(
   getUserPortfolio
 );
 
-module.exports = router;
+router.get(
+  "/performance",
+  getPerformance
+);
+
+router.get(
+  "/top-movers",
+  getTopMovers
+);
+
+module.exports = router;

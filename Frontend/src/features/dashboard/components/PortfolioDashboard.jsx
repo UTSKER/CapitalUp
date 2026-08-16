@@ -9,7 +9,7 @@ import { AssetMoversCards } from './AssetMoversCards';
 import { PositionsTable } from './PositionsTable';
 import { listenToMarketUpdates } from '../../../services/marketRealtime';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export function PortfolioDashboard({ stocks, onSelectStock, userName }) {
   const token = localStorage.getItem('capitalup-access-token');

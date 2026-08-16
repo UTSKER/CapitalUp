@@ -3,7 +3,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
 
 const timeframes = ['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL'];
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Sparkles } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export function AssetMoversCards({ onSelectStock }) {
   const token = localStorage.getItem('capitalup-access-token');
@@ -32,11 +32,16 @@ export function AssetMoversCards({ onSelectStock }) {
     fetchMovers();
   }, [token]);
 
-  const currentList = tab === 'gainers'
+  const rawList = tab === 'gainers'
     ? moversData.topGainers
     : tab === 'losers'
       ? moversData.topLosers
       : moversData.allMovers;
+
+  const currentList = (rawList && rawList.length > 0) 
+    ? rawList 
+    : (moversData.allMovers.length > 0 ? moversData.allMovers : moversData.topGainers);
+
 
   // Mini SVG Sparkline Generator
   const renderSparkline = (points, isPositive) => {

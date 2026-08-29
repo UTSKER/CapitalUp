@@ -124,10 +124,14 @@ const testKafkaRoute = require("./modules/notification/routes/testKafka.route");
 
 app.use("/api/v1/kafka", testKafkaRoute);
 
-// Health Check Route (For Serverless Keep-Alive)
-const healthRoutes = require("./routes/health.routes");
-app.use("/api/health", healthRoutes);
-
-
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error("Express Error Handler caught:", err.stack || err.message);
+  const statusCode = err.statusCode || err.status || 500;
+  return res.status(statusCode).json({
+    success: false,
+    message: err.message || "Internal server error",
+  });
+});
 
 module.exports = app;

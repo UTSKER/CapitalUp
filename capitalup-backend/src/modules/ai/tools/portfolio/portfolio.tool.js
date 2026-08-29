@@ -2,11 +2,15 @@ const portfolioService = require("../../../portfolio/services/portfolio.service"
 
 class PortfolioTool {
   async execute({ user }) {
-    if (!user) {
-      throw new Error("Authentication required.");
+    const userId = user?.userId || user?.id;
+    if (!userId) {
+      return {
+        type: "PORTFOLIO",
+        data: { holdings: [], totalValue: 0, realizedPnl: 0 },
+      };
     }
 
-    const portfolio = await portfolioService.getPortfolio(user.id);
+    const portfolio = await portfolioService.getPortfolio(userId);
 
     return {
       type: "PORTFOLIO",

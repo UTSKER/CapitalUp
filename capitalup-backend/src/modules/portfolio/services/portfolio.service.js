@@ -13,6 +13,11 @@ const {
 
 const {
   findStockBySymbol,
+} = require(
+  "../../stocks/repositories/stock.repository"
+);
+
+const {
   getAllStocks,
   getStockHistory,
 } = require(

@@ -5,18 +5,27 @@ function TypewriterText({ text }) {
   const [displayedText, setDisplayedText] = useState("");
 
   useEffect(() => {
-    let index = 0;
-    const words = text.split(" ");
+    const safeText = String(text || "").trim();
+    if (!safeText) {
+      setDisplayedText("");
+      return;
+    }
+
+    const words = safeText.split(/\s+/);
+    let currentIndex = 0;
     setDisplayedText("");
 
     const interval = setInterval(() => {
-      if (index < words.length) {
-        setDisplayedText((prev) => (prev ? prev + " " + words[index] : words[index]));
-        index++;
+      if (currentIndex < words.length) {
+        const wordToAdd = words[currentIndex];
+        if (wordToAdd !== undefined && wordToAdd !== "undefined") {
+          setDisplayedText((prev) => (prev ? `${prev} ${wordToAdd}` : wordToAdd));
+        }
+        currentIndex++;
       } else {
         clearInterval(interval);
       }
-    }, 25); // snappier word-by-word streaming effect
+    }, 25);
 
     return () => clearInterval(interval);
   }, [text]);
@@ -74,94 +83,94 @@ export function ChatView() {
         body: JSON.stringify({ message: text })
       });
 
-      let result = await res.json();
+      let result = await res.json().catch(() => ({}));
+ 
+       // If token expired, attempt transparent automatic refresh and retry
+       if (res.status === 401) {
+         const refreshToken = localStorage.getItem('capitalup-refresh-token');
+         if (refreshToken) {
+           try {
+             const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ refreshToken })
+             });
+             const refreshResult = await refreshRes.json().catch(() => ({}));
+             if (refreshRes.ok && refreshResult.accessToken) {
+               localStorage.setItem('capitalup-access-token', refreshResult.accessToken);
+               localStorage.setItem('capitalup-session-expiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString());
+               
+               // Retry chat request with new access token
+               res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
+                 method: 'POST',
+                 headers: {
+                   'Content-Type': 'application/json',
+                   Authorization: `Bearer ${refreshResult.accessToken}`
+                 },
+                 body: JSON.stringify({ message: text })
+               });
+               result = await res.json().catch(() => ({}));
+             }
+           } catch (refreshErr) {
+             console.error('Auto refresh token failed:', refreshErr);
+           }
+         }
+       }
 
-      // If token expired, attempt transparent automatic refresh and retry
-      if (res.status === 401) {
-        const refreshToken = localStorage.getItem('capitalup-refresh-token');
-        if (refreshToken) {
-          try {
-            const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ refreshToken })
-            });
-            const refreshResult = await refreshRes.json();
-            if (refreshRes.ok && refreshResult.accessToken) {
-              localStorage.setItem('capitalup-access-token', refreshResult.accessToken);
-              localStorage.setItem('capitalup-session-expiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString());
-              
-              // Retry chat request with new access token
-              res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${refreshResult.accessToken}`
-                },
-                body: JSON.stringify({ message: text })
-              });
-              result = await res.json();
-            }
-          } catch (refreshErr) {
-            console.error('Auto refresh token failed:', refreshErr);
-          }
-        }
-      }
+       if (res.status === 401) {
+         result.message = "Your session has expired. Please log in again to continue.";
+       }
 
-      if (res.status === 401) {
-        result.message = "Your session has expired. Please log in again to continue.";
-      }
+       if (res.ok && result.success) {
+         let replyText = result.data.reply;
+         let isUnrelated = false;
+         if (replyText.includes("[UNRELATED_PROMPT_ALERT]")) {
+           replyText = replyText.replace("[UNRELATED_PROMPT_ALERT]", "").trim();
+           isUnrelated = true;
+           setShowMascot(true);
+           // auto dismiss mascot after 8 seconds
+           setTimeout(() => {
+             setShowMascot(false);
+           }, 8000);
+         }
 
-      if (res.ok && result.success) {
-        let replyText = result.data.reply;
-        let isUnrelated = false;
-        if (replyText.includes("[UNRELATED_PROMPT_ALERT]")) {
-          replyText = replyText.replace("[UNRELATED_PROMPT_ALERT]", "").trim();
-          isUnrelated = true;
-          setShowMascot(true);
-          // auto dismiss mascot after 8 seconds
-          setTimeout(() => {
-            setShowMascot(false);
-          }, 8000);
-        }
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: replyText,
-            sources: result.data.sources,
-            intent: result.data.intent,
-            isUnrelated
-          }
-        ]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: result.message || "Sorry, I encountered an error processing your request. Please try again.",
-            error: true
-          }
-        ]);
-      }
-    } catch (err) {
-      console.error("AI Chat Error:", err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: "Unable to reach the server. Please check your connection and ensure the backend is running.",
-          error: true
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+         setMessages((prev) => [
+           ...prev,
+           {
+             id: Date.now().toString(),
+             role: 'assistant',
+             content: replyText,
+             sources: result.data.sources,
+             intent: result.data.intent,
+             isUnrelated
+           }
+         ]);
+       } else {
+         setMessages((prev) => [
+           ...prev,
+           {
+             id: Date.now().toString(),
+             role: 'assistant',
+             content: result.message || "Sorry, I encountered an error processing your request. Please try again.",
+             error: true
+           }
+         ]);
+       }
+     } catch (err) {
+       console.error("AI Chat Error:", err);
+       setMessages((prev) => [
+         ...prev,
+         {
+           id: Date.now().toString(),
+           role: 'assistant',
+           content: "Unable to reach the server. Please check your connection and ensure the backend is running.",
+           error: true
+         }
+       ]);
+     } finally {
+       setLoading(false);
+     }
+   };
 
   const suggestions = [
     { label: "Check my portfolio status", query: "How is my portfolio performing?" },

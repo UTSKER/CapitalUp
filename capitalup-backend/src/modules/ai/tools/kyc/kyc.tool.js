@@ -2,11 +2,18 @@ const kycService = require("../../../kyc/services/kyc.service");
 
 class KYCTool {
   async execute({ user }) {
-    if (!user) {
-      throw new Error("Authentication required.");
+    const userId = user?.userId || user?.id;
+    if (!userId) {
+      return {
+        type: "KYC",
+        data: {
+          exists: false,
+          status: "NOT_STARTED",
+        },
+      };
     }
 
-    const kyc = await kycService.getKyc(user.id);
+    const kyc = await kycService.getKyc(userId);
 
     if (!kyc) {
       return {

@@ -6,4 +6,5 @@ module.exports = {
   [ROUTES.PORTFOLIO]: require("./portfolio/portfolio.tool"),
   [ROUTES.MARKET]: require("./market/market.tool"),
   [ROUTES.TICKET]: require("./ticket/ticket.tool"),
+  [ROUTES.GENERAL]: require("./general/general.tool"),
 };

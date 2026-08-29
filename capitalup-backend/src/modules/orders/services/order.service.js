@@ -38,23 +38,14 @@ async function placeOrder({
   quantity,
   clientOrderId,
 }) {
-  const cachedPrice =
-    await redisClient.get(
-      `stock:${symbol}`
-    );
+  const { getOrFetchCurrentPrice } = require("../../stocks/services/stock.service");
+  const price = await getOrFetchCurrentPrice(symbol);
 
-  if (!cachedPrice) {
+  if (!price || !Number.isFinite(price) || price <= 0) {
     throw new Error(
-      "Live price not available"
+      `Live price not available for ${symbol}. Please try again shortly.`
     );
   }
-
-  const parsedPrice =
-    JSON.parse(cachedPrice);
-
-  const price = Number(
-    parsedPrice.price
-  );
 
   const totalCost = price * quantity;
   const client = await pool.connect();

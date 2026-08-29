@@ -164,14 +164,20 @@ async function startServer() {
     await startSubscriber();
 
     /* =====================================
-            Kafka Initialization
+            Kafka Initialization (Bypassed in local mode)
     ===================================== */
-
-    await producer.connectProducer();
-
-    await initializeKafka();
-
-    await startNotificationConsumer();
+    if (process.env.KAFKA_BROKERS && process.env.KAFKA_BROKERS.trim()) {
+      try {
+        await producer.connectProducer();
+        await initializeKafka();
+        await startNotificationConsumer();
+        console.log("✅ Kafka Service Initialized");
+      } catch (kafkaErr) {
+        console.warn("⚠️ Kafka initialization failed, proceeding with local fallback:", kafkaErr.message);
+      }
+    } else {
+      console.log("ℹ️ Running in local mode: Kafka connection bypassed for notifications");
+    }
 
 
 

@@ -143,12 +143,11 @@ async function placeStopOrder(
     );
   }
 
-  const cachedPrice = await redisClient.get(`stock:${symbol}`);
-  if (!cachedPrice) {
+  const { getOrFetchCurrentPrice } = require("../../stocks/services/stock.service");
+  const currentPrice = await getOrFetchCurrentPrice(symbol);
+  if (!currentPrice || !Number.isFinite(currentPrice) || currentPrice <= 0) {
     throw new Error("Live price not available for this symbol");
   }
-  const parsedPrice = JSON.parse(cachedPrice);
-  const currentPrice = Number(parsedPrice.price);
   const lowerPriceBound = currentPrice * 0.75;
   const upperPriceBound = currentPrice * 1.25;
   if (stopPrice < lowerPriceBound || stopPrice > upperPriceBound) {

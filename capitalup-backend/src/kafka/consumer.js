@@ -5,23 +5,36 @@ const consumer = kafka.consumer({
 });
 
 async function connectConsumer(topic, handler) {
-    await consumer.connect();
+    if (!process.env.KAFKA_BROKERS || !process.env.KAFKA_BROKERS.trim()) {
+        console.log(`ℹ️ Kafka Consumer bypassed for ${topic} (local mode)`);
+        return;
+    }
 
-    await consumer.subscribe({
-        topic,
-        fromBeginning: true,
-    });
+    try {
+        await consumer.connect();
 
-    console.log(`✅ Listening on ${topic}`);
+        await consumer.subscribe({
+            topic,
+            fromBeginning: true,
+        });
 
-    await consumer.run({
-        eachMessage: async ({ message }) => {
-            const data = JSON.parse(message.value.toString());
+        console.log(`✅ Listening on ${topic}`);
 
-            await handler(data);
-        },
-    });
+        await consumer.run({
+            eachMessage: async ({ message }) => {
+                try {
+                    const data = JSON.parse(message.value.toString());
+                    await handler(data);
+                } catch (msgErr) {
+                    console.error("❌ Kafka consumer message handling error:", msgErr.message);
+                }
+            },
+        });
+    } catch (err) {
+        console.warn(`⚠️ Kafka Consumer connection failed for ${topic}, bypassing for local:`, err.message);
+    }
 }
 
 module.exports = connectConsumer;
+
 

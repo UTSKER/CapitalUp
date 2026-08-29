@@ -71,24 +71,25 @@ async function searchStocks(
   );
 }
 
-async function findStockBySymbol(
-  symbol
-) {
-  const result =
-    await pool.query(
-      `
-      SELECT *
-      FROM stocks
-      WHERE
-        symbol = $1
-        AND is_active = TRUE
-      `,
-      [symbol]
-    );
+async function findStockBySymbol(symbol) {
+  if (!symbol) return null;
+  const rawSymbol = String(symbol).trim().toUpperCase();
+  const baseSymbol = rawSymbol.replace(/\.NS$/i, "");
+  const nsSymbol = baseSymbol + ".NS";
 
-  return mapStockRow(
-    result.rows[0]
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM stocks
+    WHERE
+      (symbol = $1 OR symbol = $2 OR symbol = $3)
+      AND is_active = TRUE
+    LIMIT 1
+    `,
+    [rawSymbol, baseSymbol, nsSymbol]
   );
+
+  return mapStockRow(result.rows[0]);
 }
 
 async function getTrackedStockSymbols() {

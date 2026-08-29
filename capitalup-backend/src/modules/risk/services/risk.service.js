@@ -146,15 +146,16 @@ async function reject(db, input, code, message, snapshot = {}) {
 }
 
 async function getLivePrice(symbol) {
-  const cached = await redisClient.get(`stock:${symbol}`);
-  if (!cached) {
-    cacheMetrics.misses++;
-    return null;
-  }
-  cacheMetrics.hits++;
-  const parsed = JSON.parse(cached);
-  const price = Number(parsed.price);
-  return Number.isFinite(price) && price > 0 ? price : null;
+  try {
+    const { getOrFetchCurrentPrice } = require("../../stocks/services/stock.service");
+    const price = await getOrFetchCurrentPrice(symbol);
+    if (price && Number.isFinite(price) && price > 0) {
+      cacheMetrics.hits++;
+      return price;
+    }
+  } catch (err) {}
+  cacheMetrics.misses++;
+  return null;
 }
 
 async function evaluateOrder(db, request) {

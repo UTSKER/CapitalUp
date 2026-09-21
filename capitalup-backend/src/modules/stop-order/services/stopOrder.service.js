@@ -845,6 +845,8 @@ function addStopOrderToMatchingEngine(order) {
       Number(order.stopPrice),
     validity:
       order.validity || "DAY",
+    linkedLimitOrderId:
+      order.linkedLimitOrderId || order.linked_limit_order_id || null,
     createdAt:
       order.createdAt,
     expiresAt:

@@ -86,3 +86,9 @@ scratch/
 
 # AI Agent & Learning Files
 .agents/
+
+# Private interview notes & personal documents
+UBS_*.md
+*_HireVue_*.md
+hirevue_*.md
+

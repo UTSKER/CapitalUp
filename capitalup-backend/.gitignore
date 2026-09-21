@@ -33,5 +33,7 @@ check_defaults.js
 list_users.js
 reset.js
 
-#introductary or learning files 
-.agents/skills
+# Temporary and learning files 
+.agents/
+UBS_*.md
+*_HireVue_*.md

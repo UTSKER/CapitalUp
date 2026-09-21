@@ -112,8 +112,9 @@ const clientProxy = new Proxy({}, {
         }
       };
     }
-    const val = activeClient[prop];
-    return typeof val === "function" ? val.bind(activeClient) : val;
+    const targetClient = (activeClient === realClient && !realClient.isOpen) ? mockClient : activeClient;
+    const val = targetClient[prop];
+    return typeof val === "function" ? val.bind(targetClient) : val;
   }
 });
 

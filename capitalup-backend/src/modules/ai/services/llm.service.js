@@ -38,11 +38,11 @@ async function getActiveGroqModels() {
 
   const fallbackList = [
     process.env.GROQ_MODEL,
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "llama-3.2-3b-preview",
     "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
+    "groq/compound-mini",
     "qwen/qwen-2.5-coder-32b",
+    "allam-2-7b",
   ].filter(Boolean);
 
   try {
@@ -52,22 +52,19 @@ async function getActiveGroqModels() {
     if (res.ok) {
       const body = await res.json();
       if (body && Array.isArray(body.data)) {
-        // Exclude reasoning models (r1, distill, qwq) and special purpose models (whisper, guard, embed)
-        const isExcluded = (id) => 
-          id.includes("whisper") || 
-          id.includes("guard") || 
-          id.includes("embed") || 
-          id.includes("distill") || 
-          id.includes("r1") || 
-          id.includes("qwq") ||
-          id.includes("reasoning");
+        const isExcluded = (id) =>
+          id.includes("whisper") ||
+          id.includes("guard") ||
+          id.includes("embed") ||
+          id.includes("orpheus") ||
+          id.includes("vision");
 
-        const instructModels = body.data
+        const availableModels = body.data
           .map((m) => m.id)
           .filter((id) => !isExcluded(id));
 
-        if (instructModels.length > 0) {
-          cachedGroqModels = instructModels;
+        if (availableModels.length > 0) {
+          cachedGroqModels = availableModels;
           return cachedGroqModels;
         }
       }
@@ -78,13 +75,62 @@ async function getActiveGroqModels() {
   return cachedGroqModels;
 }
 
+async function queryGemini(prompt, apiKey) {
+  const models = [process.env.GEMINI_MODEL, "gemini-1.5-flash", "gemini-2.0-flash"].filter(Boolean);
+  let lastErr = null;
+
+  const isBearer = apiKey.startsWith("AQ.") || apiKey.startsWith("ya29.");
+
+  for (const model of models) {
+    try {
+      const headers = { "Content-Type": "application/json" };
+      let url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      if (isBearer) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+      } else {
+        url += `?key=${apiKey}`;
+      }
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 300
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+
+      const data = await response.json();
+      const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (candidateText) {
+        return candidateText.trim();
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  throw lastErr || new Error("Gemini query failed");
+}
+
 class LLMService {
+  getActiveGroqModels() {
+    return getActiveGroqModels();
+  }
+
   getModel(modelName) {
     return new ChatGroq({
       apiKey: process.env.GROQ_API_KEY,
       model: modelName,
       temperature: 0.2,
-      maxTokens: 500,
+      maxTokens: 250,
     });
   }
 
@@ -127,8 +173,21 @@ ${question}
 
   async chat(question, context, user = null) {
     const prompt = this.buildPrompt(question, context, user);
-    const modelsToTry = await getActiveGroqModels();
 
+    // 1. If GEMINI_API_KEY is configured, use high-throughput Gemini Flash (1,000,000 Tokens/Min Free)
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (geminiKey) {
+      try {
+        const raw = await queryGemini(prompt, geminiKey, process.env.GEMINI_MODEL || "gemini-2.0-flash");
+        const cleaned = cleanLLMResponse(raw);
+        if (cleaned) return cleaned;
+      } catch (geminiErr) {
+        console.warn("⚠️ Gemini API failed, falling back to Groq:", geminiErr.message);
+      }
+    }
+
+    // 2. Groq Engine Fallback
+    const modelsToTry = await getActiveGroqModels();
     for (const modelName of modelsToTry) {
       try {
         const modelInstance = this.getModel(modelName);
@@ -149,7 +208,13 @@ ${question}
           return cleanedReply;
         }
       } catch (llmError) {
-        console.warn(`⚠️ Groq model [${modelName}] failed (${llmError.message}), trying next model...`);
+        if (llmError.message.includes("429") || llmError.message.includes("Rate limit")) {
+          const match = llmError.message.match(/try again in ([\d.]+)s/i);
+          const waitMs = match ? Math.ceil(parseFloat(match[1]) * 1000) + 300 : 1800;
+          await new Promise((r) => setTimeout(r, Math.min(waitMs, 4000)));
+        } else {
+          console.warn(`⚠️ Groq model [${modelName}] failed (${llmError.message}), trying next model...`);
+        }
       }
     }
 

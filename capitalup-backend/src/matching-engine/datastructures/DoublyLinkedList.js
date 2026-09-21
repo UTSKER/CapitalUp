@@ -33,13 +33,19 @@ class DoublyLinkedList {
       this.tail = null;
     } else {
       this.head = node.next;
-      this.head.prev = null;
+      if (this.head) {
+        this.head.prev = null;
+      } else {
+        this.tail = null;
+      }
     }
 
     node.prev = null;
     node.next = null;
 
-    this.length--;
+    if (this.length > 0) {
+      this.length--;
+    }
 
     return node;
   }
@@ -55,16 +61,36 @@ class DoublyLinkedList {
 
     if (node === this.tail) {
       this.tail = node.prev;
-      this.tail.next = null;
+      if (this.tail) {
+        this.tail.next = null;
+      } else {
+        this.head = null;
+      }
     } else {
-      node.prev.next = node.next;
-      node.next.prev = node.prev;
+      if (node.prev) {
+        node.prev.next = node.next;
+      }
+      if (node.next) {
+        node.next.prev = node.prev;
+      }
     }
 
     node.prev = null;
     node.next = null;
 
-    this.length--;
+    if (this.length > 0) {
+      this.length--;
+    }
+  }
+
+  toArray() {
+    const list = [];
+    let current = this.head;
+    while (current) {
+      list.push(current);
+      current = current.next;
+    }
+    return list;
   }
 
   peekFront() {

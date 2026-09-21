@@ -5,68 +5,73 @@ class RedBlackTree {
         this.root = null;
     }
 
+    toTicks(price) {
+        return Math.round(Number(price) * 100);
+    }
+
     insert(priceLevel) {
+        const targetTicks = this.toTicks(priceLevel.price);
+        const existingNode = this.findByTicks(targetTicks);
 
-    const existingNode =
-        this.find(priceLevel.price);
-
-    if (existingNode) {
-        return existingNode;
-    }
-
-    const newNode =
-        new RBNode(priceLevel);
-
-    let parent = null;
-    let current = this.root;
-
-    while (current) {
-
-        parent = current;
-
-        if (newNode.price < current.price) {
-            current = current.left;
-        }
-        else {
-            current = current.right;
+        if (existingNode) {
+            return existingNode;
         }
 
-    }
+        const newNode =
+            new RBNode(priceLevel);
 
-    newNode.parent = parent;
-
-    if (!parent) {
-        this.root = newNode;
-    }
-    else if (newNode.price < parent.price) {
-        parent.left = newNode;
-    }
-    else {
-        parent.right = newNode;
-    }
-
-    this.setRed(newNode);
-
-    if (newNode === this.root) {
-        this.setBlack(newNode);
-        return newNode;
-    }
-
-    this.insertFixup(newNode);
-
-    return newNode;
-}
-
-    find(price) {
+        let parent = null;
         let current = this.root;
 
         while (current) {
+            parent = current;
 
-            if (price === current.price) {
+            if (targetTicks < this.toTicks(current.price)) {
+                current = current.left;
+            }
+            else {
+                current = current.right;
+            }
+        }
+
+        newNode.parent = parent;
+
+        if (!parent) {
+            this.root = newNode;
+        }
+        else if (targetTicks < this.toTicks(parent.price)) {
+            parent.left = newNode;
+        }
+        else {
+            parent.right = newNode;
+        }
+
+        this.setRed(newNode);
+
+        if (newNode === this.root) {
+            this.setBlack(newNode);
+            return newNode;
+        }
+
+        this.insertFixup(newNode);
+
+        return newNode;
+    }
+
+    find(price) {
+        return this.findByTicks(this.toTicks(price));
+    }
+
+    findByTicks(targetTicks) {
+        let current = this.root;
+
+        while (current) {
+            const currentTicks = this.toTicks(current.price);
+            if (targetTicks === currentTicks) {
                 return current;
             }
 
-            if (price < current.price) {
+            if (targetTicks < currentTicks) {
                 current = current.left;
             }
             else {
@@ -105,6 +110,46 @@ class RedBlackTree {
         }
 
         return current;
+    }
+
+    successor(node) {
+        if (!node) {
+            return null;
+        }
+
+        if (node.right) {
+            return this.minimum(node.right);
+        }
+
+        let current = node;
+        let parent = current.parent;
+
+        while (parent && current === parent.right) {
+            current = parent;
+            parent = parent.parent;
+        }
+
+        return parent;
+    }
+
+    predecessor(node) {
+        if (!node) {
+            return null;
+        }
+
+        if (node.left) {
+            return this.maximum(node.left);
+        }
+
+        let current = node;
+        let parent = current.parent;
+
+        while (parent && current === parent.left) {
+            current = parent;
+            parent = parent.parent;
+        }
+
+        return parent;
     }
 
     delete(nodeOrPrice) {

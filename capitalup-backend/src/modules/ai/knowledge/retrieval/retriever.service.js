@@ -73,11 +73,11 @@ class RetrieverService {
 
   async retrieve(query, limit = 5) {
     try {
-      // Set a strict 3-second timeout for the HuggingFace embedding API call
+      // Set a 6-second timeout for the embedding API call
       const vector = await Promise.race([
         embeddingService.embedQuery(query),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("HuggingFace embedding API timeout")), 3000)
+          setTimeout(() => reject(new Error("HuggingFace embedding API timeout")), 6000)
         )
       ]);
 

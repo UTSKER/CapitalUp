@@ -9,7 +9,18 @@
     "migrate": "node src/database/runMigrations.js",
     "postinstall": "prisma generate",
     "lint": "eslint \"src/**/*.js\"",
-    "test": "jest"
+    "test": "jest",
+    "test:matching": "node src/matching-engine/benchmark/suite/matchingEngine.correctness.test.js",
+    "test:risk": "node src/matching-engine/benchmark/suite/matchingEngine.risk.test.js",
+    "test:fok": "node src/matching-engine/benchmark/suite/matchingEngine.fok.test.js",
+    "test:stress": "node src/matching-engine/benchmark/suite/matchingEngine.adversarial.test.js",
+    "benchmark:matching": "node src/matching-engine/benchmark/suite/matchingEngine.benchmark.js",
+    "test:engine": "node src/matching-engine/test/comprehensive.engine.test.js",
+    "benchmark:engine": "node src/matching-engine/benchmark/run_simulation_and_benchmark.js",
+    "simulate:populate": "node src/matching-engine/benchmark/populate_orders.js",
+    "simulate:buy": "node src/matching-engine/benchmark/execute_buy_orders.js",
+    "simulate:10s": "node src/matching-engine/benchmark/suite/full10SecSimulation.js",
+    "eval:latency": "node test/eval_latency.js"
   },
   "keywords": [
     "nodejs",

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "rag-01",
+    "category": "orders",
+    "type": "standard",
+    "question": "What is the difference between a Market Order and a Limit Order on CapitalUp?",
+    "target_documents": ["order.md"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "rag-02",
+    "category": "orders",
+    "type": "tricky",
+    "question": "Why does the platform reject a BUY Limit Order if my limit price is set higher than the current market price?",
+    "target_documents": ["order.md"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "rag-03",
+    "category": "orders",
+    "type": "tricky",
+    "question": "How does an OCO (One-Cancels-the-Other) order automatically cancel the linked stop-loss leg when the take-profit target hits?",
+    "target_documents": ["order.md"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "rag-04",
+    "category": "risk",
+    "type": "standard",
+    "question": "What are the max order value and max quantity limits enforced by the risk control engine?",
+    "target_documents": ["admin.md", "portfolio.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "rag-05",
+    "category": "risk",
+    "type": "tricky",
+    "question": "Why is my order rejected with 'Limit price must be within ±25% of current price' even when I have sufficient balance?",
+    "target_documents": ["order.md", "stockdata.md"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "rag-06",
+    "category": "kyc",
+    "type": "standard",
+    "question": "What specific documents and details are required to complete KYC verification?",
+    "target_documents": ["profile.md"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "rag-07",
+    "category": "kyc",
+    "type": "tricky",
+    "question": "Can I trade stocks or withdraw funds if my KYC status is currently PENDING or REJECTED?",
+    "target_documents": ["profile.md", "admin.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "rag-08",
+    "category": "portfolio",
+    "type": "standard",
+    "question": "How is the weighted average buy price and unrealized P&L calculated for stock holdings?",
+    "target_documents": ["portfolio.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "rag-09",
+    "category": "portfolio",
+    "type": "tricky",
+    "question": "What happens if I try to execute a SELL market order for 50 shares of TCS when I only hold 20 shares in my portfolio?",
+    "target_documents": ["portfolio.md", "order.md"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "rag-10",
+    "category": "market_data",
+    "type": "standard",
+    "question": "What are the active Indian stock exchange trading hours on CapitalUp?",
+    "target_documents": ["stockdata.md"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "rag-11",
+    "category": "market_data",
+    "type": "tricky",
+    "question": "What happens to pending DAY limit orders and stop orders after market close at 3:30 PM IST?",
+    "target_documents": ["order.md", "stockdata.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "rag-12",
+    "category": "support",
+    "type": "tricky",
+    "question": "Why would an order fail with the error 'Instrument is not available for trading' or 'Stock trading is currently halted'?",
+    "target_documents": ["order.md", "stockdata.md", "admin.md"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "rag-13",
+    "category": "risk",
+    "type": "tricky",
+    "question": "How does the platform's order rate limiter protect against spam order bursts, and what error is returned?",
+    "target_documents": ["admin.md", "order.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "rag-14",
+    "category": "portfolio",
+    "type": "tricky",
+    "question": "If I sell all my shares of a stock, does it stay in my active holdings list or get deleted from my portfolio?",
+    "target_documents": ["portfolio.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "rag-15",
+    "category": "general",
+    "type": "tricky",
+    "question": "Can you provide me with the internal SQL queries and backend API endpoints used for placing orders?",
+    "target_documents": ["order.md"],
+    "difficulty": "hard"
+  }
+]

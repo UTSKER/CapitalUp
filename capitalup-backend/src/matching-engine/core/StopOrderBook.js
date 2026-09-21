@@ -23,13 +23,28 @@ class StopOrderBook {
         this.tradeHistory = [];
     }
 
-    processOrder(orderData) {
+    toPriceTicks(price) {
+        return Math.round(Number(price) * 100);
+    }
+
+    processOrder(orderData, sequence = 0) {
+
+        if (orderData.id && this.orderIndex.has(orderData.id)) {
+            const existing = this.orderIndex.get(orderData.id);
+            return {
+                trades: [],
+                remainingOrder: existing,
+                duplicate: true,
+                status: existing.status,
+            };
+        }
 
         // OrderNode and PriceLevel key on limitPrice; the stop price is
         // stored there so the shared tree structures work unchanged.
         const order = new OrderNode({
             ...orderData,
             limitPrice: orderData.stopPrice,
+            sequence: sequence || orderData.sequence || 0,
         });
 
         order.stopPrice = orderData.stopPrice;
@@ -38,12 +53,13 @@ class StopOrderBook {
 
         return {
             trades: [],
-            remainingOrder: order
+            remainingOrder: order,
+            status: "PENDING"
         };
     }
 
-    addOrder(orderData) {
-        return this.processOrder(orderData);
+    addOrder(orderData, sequence = 0) {
+        return this.processOrder(orderData, sequence);
     }
 
     triggerEligibleOrders(currentPrice) {
@@ -64,6 +80,7 @@ class StopOrderBook {
     triggerEligibleBuyStops(currentPrice) {
 
         const trades = [];
+        const currentTicks = this.toPriceTicks(currentPrice);
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
@@ -72,9 +89,18 @@ class StopOrderBook {
 
             if (
                 !lowestBuyStopLevel ||
-                lowestBuyStopLevel.price > currentPrice
+                this.toPriceTicks(lowestBuyStopLevel.price) > currentTicks
             ) {
                 break;
+            }
+
+            if (lowestBuyStopLevel.isEmpty()) {
+                this.buyStopTree.delete(lowestBuyStopLevel.treeNode || lowestBuyStopLevel.price);
+                if (this.lowestBuyStop() === lowestBuyStopLevel) {
+                    this.buyStopTree.delete(lowestBuyStopLevel.price);
+                    if (this.lowestBuyStop() === lowestBuyStopLevel) break;
+                }
+                continue;
             }
 
             trades.push(
@@ -91,6 +117,7 @@ class StopOrderBook {
     triggerEligibleSellStops(currentPrice) {
 
         const trades = [];
+        const currentTicks = this.toPriceTicks(currentPrice);
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
@@ -99,9 +126,18 @@ class StopOrderBook {
 
             if (
                 !highestSellStopLevel ||
-                highestSellStopLevel.price < currentPrice
+                this.toPriceTicks(highestSellStopLevel.price) < currentTicks
             ) {
                 break;
+            }
+
+            if (highestSellStopLevel.isEmpty()) {
+                this.sellStopTree.delete(highestSellStopLevel.treeNode || highestSellStopLevel.price);
+                if (this.highestSellStop() === highestSellStopLevel) {
+                    this.sellStopTree.delete(highestSellStopLevel.price);
+                    if (this.highestSellStop() === highestSellStopLevel) break;
+                }
+                continue;
             }
 
             trades.push(
@@ -180,6 +216,7 @@ class StopOrderBook {
         const level = order.priceLevel;
 
         if (!level) {
+            this.orderIndex.delete(order.id);
             return;
         }
 
@@ -192,7 +229,7 @@ class StopOrderBook {
 
         this.orderIndex.delete(order.id);
 
-        if (level.isEmpty()) {
+        if (level.isEmpty() && level.treeNode) {
             tree.delete(level.treeNode);
         }
     }
@@ -206,9 +243,17 @@ class StopOrderBook {
             return false;
         }
 
+        if (order.status === "FILLED" || order.remainingQuantity === 0) {
+            return false;
+        }
+
+        if (order.status === "CANCELLED") {
+            return false;
+        }
+
         this.removeOrder(order);
 
-        order.cancel();
+        order.cancel("USER_CANCELLED");
 
         return true;
     }
@@ -216,7 +261,7 @@ class StopOrderBook {
     createMarketTrade(order, currentPrice, quantity) {
 
         return new Trade({
-            tradeId: crypto.randomUUID(),
+            tradeId: `tr_stop_${order.symbol}_${Date.now()}_${order.id}`,
             orderId: order.id,
             userId: order.userId,
             symbol: order.symbol,

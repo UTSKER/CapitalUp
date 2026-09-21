@@ -10,6 +10,10 @@ class Trade {
         sellOrderId,
         buyerId,
         sellerId,
+        makerOrderId,
+        takerOrderId,
+        makerUserId,
+        takerUserId,
         executedQuantity,
         quantity,
         executedPrice,
@@ -29,6 +33,11 @@ class Trade {
 
         this.buyerId = buyerId;
         this.sellerId = sellerId;
+
+        this.makerOrderId = makerOrderId ?? null;
+        this.takerOrderId = takerOrderId ?? null;
+        this.makerUserId = makerUserId ?? null;
+        this.takerUserId = takerUserId ?? null;
 
         this.executedQuantity =
             executedQuantity ?? quantity;

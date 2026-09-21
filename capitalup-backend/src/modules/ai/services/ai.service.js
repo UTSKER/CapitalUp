@@ -22,7 +22,7 @@ class AIService {
       cashBalance: 0
     };
 
-    if (user && user.userId) {
+    if (user && user.userId && /^\d+$/.test(String(user.userId))) {
       try {
         const userRes = await pool.query(
           "SELECT full_name, email, mobile_number, is_email_verified, is_mobile_verified, balance FROM users WHERE user_id = $1",

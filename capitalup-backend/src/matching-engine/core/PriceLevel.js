@@ -31,7 +31,7 @@ class PriceLevel {
 
         this.orders.remove(orderNode);
 
-        this.totalQuantity -= orderNode.remainingQuantity;
+        this.totalQuantity = Math.max(0, this.totalQuantity - orderNode.remainingQuantity);
 
         orderNode.priceLevel = null;
     }
@@ -46,7 +46,7 @@ class PriceLevel {
 
         orderNode.fill(quantity);
 
-        this.totalQuantity -= quantity;
+        this.totalQuantity = Math.max(0, this.totalQuantity - quantity);
     }
 
     peek() {

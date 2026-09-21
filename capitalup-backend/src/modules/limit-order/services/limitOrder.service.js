@@ -84,12 +84,34 @@ async function placeLimitOrder(
   userId,
   data
 ) {
+  if (data.clientOrderId) {
+    try {
+      const existingCheck = await pool.query(
+        `SELECT r.order_id
+         FROM risk_decisions d
+         JOIN risk_reservations r ON d.correlation_id = r.correlation_id
+         WHERE d.user_id = $1 AND d.client_order_id = $2 AND r.order_id IS NOT NULL
+         LIMIT 1`,
+        [userId, data.clientOrderId]
+      );
+      if (existingCheck.rows[0]) {
+        const existingOrder = await getLimitOrderById(existingCheck.rows[0].order_id);
+        if (existingOrder) {
+          return existingOrder;
+        }
+      }
+    } catch (e) {
+      // Continue normal execution if idempotency lookup fails
+    }
+  }
+
   const {
     symbol,
     side,
     quantity,
-    validity = "DAY",
   } = data;
+
+  const validity = (data.validity || data.timeInForce || "DAY").toUpperCase();
 
   const limitPrice =
     data.limitPrice ??
@@ -115,12 +137,10 @@ async function placeLimitOrder(
     );
   }
 
-  if (
-    validity !== "DAY" &&
-    validity !== "GTT"
-  ) {
+  const allowedValidity = ["DAY", "GTT", "GTC", "IOC", "FOK"];
+  if (!allowedValidity.includes(validity)) {
     throw new Error(
-      "Validity must be DAY or GTT"
+      `Validity must be one of: ${allowedValidity.join(", ")}`
     );
   }
 
@@ -145,12 +165,6 @@ async function placeLimitOrder(
   if (limitPrice < lowerPriceBound || limitPrice > upperPriceBound) {
     throw new Error(
       `Limit price must be within ±25% of current price (₹${lowerPriceBound.toFixed(2)} - ₹${upperPriceBound.toFixed(2)})`
-    );
-  }
-
-  if (side === "BUY" && limitPrice > currentPrice) {
-    throw new Error(
-      `Limit price for buying cannot be greater than the current market price (₹${currentPrice.toFixed(2)})`
     );
   }
 
@@ -246,7 +260,14 @@ async function placeLimitOrder(
       }, client);
 
     await consumeReservation(client, risk.correlationId, order.id);
-    addOrderToMatchingEngine(order);
+    const engineResult = addOrderToMatchingEngine(order);
+
+    if (validity === "FOK" && engineResult && engineResult.status === "REJECTED") {
+      const error = new Error("FOK order could not be immediately filled in full");
+      error.statusCode = 422;
+      error.code = "FOK_NOT_FILLABLE";
+      throw error;
+    }
 
     await appendAuditEvent(client, {
       correlationId: risk.correlationId,
@@ -273,6 +294,14 @@ async function placeLimitOrder(
     });
 
     await client.query("COMMIT");
+
+    if (engineResult && engineResult.trades && engineResult.trades.length > 0) {
+      try {
+        await settleExecutedTrades(engineResult.trades);
+      } catch (settleErr) {
+        console.error("Immediate crossing settlement error:", settleErr.message);
+      }
+    }
 
     // Sync updated balance to Redis cache
     const balResult = await pool.query("SELECT balance FROM users WHERE user_id = $1", [userId]);
@@ -750,10 +779,10 @@ function addOrderToMatchingEngine(order) {
       order.id
     )
   ) {
-    return;
+    return { status: "ALREADY_IN_BOOK", trades: [] };
   }
 
-  matchingEngine.placeOrder({
+  return matchingEngine.placeOrder({
     id: order.id,
     userId: order.userId,
     symbol: order.symbol,
@@ -764,6 +793,10 @@ function addOrderToMatchingEngine(order) {
       Number(order.limitPrice),
     validity:
       order.validity || "DAY",
+    timeInForce:
+      order.validity || "DAY",
+    clientOrderId:
+      order.clientOrderId || null,
     createdAt:
       order.createdAt,
     expiresAt:
